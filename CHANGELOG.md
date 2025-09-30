@@ -6,7 +6,8 @@ The format is inspired by Keep a Changelog and uses calendar dates (YYYY‑MM‑
 
 ## [0.3.0] - Unreleased
 - Rebranded the project as **Nekomata**, updating crate/binary names, docs, and visuals while preserving compatibility with existing IINACT-powered workflows.
-- Introduced new configuration and history paths (`~/.config/nekomata`) and environment variables (`NEKOMATA_CONFIG_DIR`, `NEKOMATA_DUNGEON_CATALOG`) with automatic fallback to legacy locations.
+- Introduced new configuration and history paths (`~/.config/nekomata`) and environment variables (`NEKOMATA_CONFIG_DIR`, `NEKOMATA_DUNGEON_CATALOG`).
+- Removed the pre-release legacy fallback logic for `iinact-tui` paths and environment variables to streamline the rebrand.
 - Added a heal view and toggle to history window.
 - Added sorting and graph update for heal live view.
 - Refactored the model.rs into dedicated submodules (`history_panel`, `settings`, `state`, `types`, `view`)

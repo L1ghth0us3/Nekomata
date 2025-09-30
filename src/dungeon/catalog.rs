@@ -11,7 +11,6 @@ use tracing::{debug, info, warn};
 
 const EMBEDDED_CATALOG: &str = include_str!("../../dungeon-catalog.json");
 const DUNGEON_CATALOG_ENV: &str = "NEKOMATA_DUNGEON_CATALOG";
-const LEGACY_DUNGEON_CATALOG_ENV: &str = "IINACT_DUNGEON_CATALOG";
 
 static DEFAULT_CATALOG_FILENAMES: Lazy<[&str; 1]> = Lazy::new(|| ["dungeon-catalog.json"]);
 
@@ -128,13 +127,6 @@ impl DungeonCatalog {
 
 fn locate_default_file() -> Option<PathBuf> {
     if let Some(env_path) = std::env::var_os(DUNGEON_CATALOG_ENV) {
-        let candidate = PathBuf::from(env_path);
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-
-    if let Some(env_path) = std::env::var_os(LEGACY_DUNGEON_CATALOG_ENV) {
         let candidate = PathBuf::from(env_path);
         if candidate.exists() {
             return Some(candidate);

@@ -60,7 +60,7 @@ The app will connect automatically to `ws://127.0.0.1:10501/ws` and begin render
 - Normalization: numeric fields arrive as strings; commas/percent signs are stripped before parsing for sorting/ratios. Damage share is computed from per‑combatant damage over encounter total.
 - Encounter naming: while a fight is active some servers report generic names (e.g., "Encounter"); the header falls back to Zone until a final name is available.
 - Background: widgets avoid setting a background color so your terminal theme (blur/transparency) stays visible. The header separator uses a subtle gray; background meters intentionally set a background for the meter fill only.
-- Persisted config: settings are written to `~/.config/nekomata/nekomata.config` on Linux/macOS (or `%APPDATA%\nekomata\nekomata.config` on Windows). Set `NEKOMATA_CONFIG_DIR` to override (the legacy `IINACT_TUI_CONFIG_DIR` is still honoured for backward compatibility).
+- Persisted config: settings are written to `~/.config/nekomata/nekomata.config` on Linux/macOS (or `%APPDATA%\nekomata\nekomata.config` on Windows). Set `NEKOMATA_CONFIG_DIR` to override.
 - History panel: press `h` to switch into the history view; use `↑/↓` or mouse scroll to pick a date, hit `Enter`/click to drill into the encounters list, press `Enter` again for per-encounter details, and `←`/`Backspace` to step back. Date and encounter lists load from lightweight indexes first, with overlay indicators while data hydrates; encounter detail fetches the full frame-by-frame record on demand.
 - Idle overlay: when the app is idle you’ll see the idle window by default—press `i` to hide/show it without leaving idle mode so you can review the most recent encounter quickly.
 
