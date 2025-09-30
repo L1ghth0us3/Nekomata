@@ -459,9 +459,10 @@ impl AppState {
                         } else if self.history.dungeon_selected_run >= day.runs.len() {
                             self.history.dungeon_selected_run = day.runs.len() - 1;
                         }
+                        self.history.dungeon_selected_child = 0;
                     }
                 }
-                DungeonPanelLevel::Runs | DungeonPanelLevel::RunDetail => {
+                DungeonPanelLevel::Runs => {
                     if let Some(day) = self.history.current_dungeon_day() {
                         if day.runs.is_empty() {
                             return;
@@ -478,12 +479,38 @@ impl AppState {
                         self.history.dungeon_selected_child = 0;
                     }
                 }
-                DungeonPanelLevel::EncounterDetail => {
+                DungeonPanelLevel::RunDetail => {
                     if let Some(run) = self.history.current_dungeon_run() {
-                        if run.child_records.is_empty() {
+                        let child_len = run
+                            .record
+                            .as_ref()
+                            .map(|rec| rec.child_keys.len())
+                            .unwrap_or(run.child_records.len());
+                        if child_len == 0 {
                             return;
                         }
-                        let len = run.child_records.len() as i32;
+                        let len = child_len as i32;
+                        let current = self.history.dungeon_selected_child as i32;
+                        let mut next = current + delta;
+                        if next < 0 {
+                            next = 0;
+                        } else if next >= len {
+                            next = len - 1;
+                        }
+                        self.history.dungeon_selected_child = next as usize;
+                    }
+                }
+                DungeonPanelLevel::EncounterDetail => {
+                    if let Some(run) = self.history.current_dungeon_run() {
+                        let child_len = run
+                            .record
+                            .as_ref()
+                            .map(|rec| rec.child_keys.len())
+                            .unwrap_or(run.child_records.len());
+                        if child_len == 0 {
+                            return;
+                        }
+                        let len = child_len as i32;
                         let current = self.history.dungeon_selected_child as i32;
                         let mut next = current + delta;
                         if next < 0 {
