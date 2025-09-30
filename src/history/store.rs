@@ -300,7 +300,7 @@ impl HistoryStore {
             let record: DateSummaryRecord = serde_cbor::from_slice(value_bytes.as_ref())
                 .context("Failed to deserialize date summary")?;
             let iso_date = String::from_utf8(key_bytes.to_vec()).unwrap_or(record.date_id.clone());
-            let label = format_dungeon_date_label(&iso_date, record.encounter_ids.len());
+            let label = format_date_label(&iso_date, record.encounter_ids.len());
             days.push(HistoryDay {
                 iso_date,
                 label,
@@ -321,7 +321,7 @@ impl HistoryStore {
             let record: DateSummaryRecord = serde_cbor::from_slice(value_bytes.as_ref())
                 .context("Failed to deserialize dungeon date summary")?;
             let iso_date = String::from_utf8(key_bytes.to_vec()).unwrap_or(record.date_id.clone());
-            let label = format_date_label(&iso_date, record.encounter_ids.len());
+            let label = format_dungeon_date_label(&iso_date, record.encounter_ids.len());
             days.push(DungeonHistoryDay {
                 iso_date,
                 label,

@@ -569,6 +569,29 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         format_party_signature(&record.party_signature)
     };
 
+    let detail_mode = s.history.dungeon_detail_mode;
+    let (total_label, total_value, average_label, average_value) = match detail_mode {
+        ViewMode::Dps => (
+            "Total Damage",
+            format_number(record.total_damage),
+            "Average DPS",
+            format_number(record.total_encdps),
+        ),
+        ViewMode::Heal => {
+            let avg_hps = if record.total_duration_secs > 0 {
+                record.total_healed / record.total_duration_secs as f64
+            } else {
+                0.0
+            };
+            (
+                "Total Healed",
+                format_number(record.total_healed),
+                "Average HPS",
+                format_number(avg_hps),
+            )
+        }
+    };
+
     let mut summary_lines = Vec::new();
     summary_lines.push(Line::from(vec![
         Span::styled("Zone: ", header_style()),
@@ -582,16 +605,23 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         ),
     ]));
     summary_lines.push(Line::from(vec![
-        Span::styled("Total Damage: ", header_style()),
-        Span::styled(format_number(record.total_damage), value_style()),
+        Span::styled(format!("{total_label}: "), header_style()),
+        Span::styled(total_value, value_style()),
         Span::raw(" · "),
-        Span::styled("Average DPS: ", header_style()),
-        Span::styled(format_number(record.total_encdps), value_style()),
+        Span::styled(format!("{average_label}: "), header_style()),
+        Span::styled(average_value, value_style()),
     ]));
-    summary_lines.push(Line::from(vec![
-        Span::styled("Total Healed: ", header_style()),
-        Span::styled(format_number(record.total_healed), value_style()),
-    ]));
+    if matches!(detail_mode, ViewMode::Dps) {
+        summary_lines.push(Line::from(vec![
+            Span::styled("Total Healed: ", header_style()),
+            Span::styled(format_number(record.total_healed), value_style()),
+        ]));
+    } else {
+        summary_lines.push(Line::from(vec![
+            Span::styled("Total Damage: ", header_style()),
+            Span::styled(format_number(record.total_damage), value_style()),
+        ]));
+    }
     summary_lines.push(Line::from(vec![
         Span::styled("Party: ", header_style()),
         Span::styled(party, value_style()),
@@ -606,11 +636,25 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     }
 
     let mut list_items = Vec::new();
+    let metric_label = match detail_mode {
+        ViewMode::Dps => "DPS",
+        ViewMode::Heal => "HPS",
+    };
+
     for (idx, title) in record.child_titles.iter().enumerate() {
         let label = if let Some(child) = run.child_records.get(idx).and_then(|c| c.as_ref()) {
+            let metric_value = match detail_mode {
+                ViewMode::Dps => child.encounter.encdps.as_str(),
+                ViewMode::Heal => child.encounter.enchps.as_str(),
+            };
+            let metric_value = if metric_value.is_empty() {
+                "—"
+            } else {
+                metric_value
+            };
             format!(
-                "{} · {} · DPS {}",
-                title, child.encounter.duration, child.encounter.encdps,
+                "{} · {} · {} {}",
+                title, child.encounter.duration, metric_label, metric_value,
             )
         } else {
             format!("{} · (loading…)", title)
@@ -662,10 +706,9 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         f.render_stateful_widget(list, layout[1], &mut list_state);
     }
 
-    let instructions =
-        Paragraph::new("← runs · ↑/↓ select pull · Enter view pull · m toggles table")
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::NONE));
+    let instructions = Paragraph::new("← runs · ↑/↓ select pull · Enter view pull · m toggles DPS/Heal")
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::NONE));
     f.render_widget(instructions, layout[2]);
 }
 

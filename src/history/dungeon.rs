@@ -279,6 +279,22 @@ mod tests {
     }
 
     #[test]
+    fn recorder_flushes_when_zone_not_whitelisted() {
+        let catalog = Some(build_catalog());
+        let mut recorder = DungeonRecorder::new(catalog, true);
+        let first = make_record("Sastasha", "Pull 1", "00:30", "1000", "0");
+        recorder.on_encounter(&first, vec![1]);
+
+        let overworld = make_record("Middle La Noscea", "FATE", "00:15", "500", "0");
+        let update = recorder.on_encounter(&overworld, vec![2]);
+        assert_eq!(update.aggregates.len(), 1);
+        assert!(matches!(update.zone_state, Some(DungeonZoneState::Inactive)));
+        let aggregate = update.aggregates.first().expect("aggregate");
+        assert_eq!(aggregate.zone, "Sastasha");
+        assert_eq!(aggregate.child_keys.len(), 1);
+    }
+
+    #[test]
     fn recorder_disables_when_catalog_missing() {
         let mut recorder = DungeonRecorder::new(None, true);
         let record = make_record("Sastasha", "Pull 1", "00:30", "1000", "0");

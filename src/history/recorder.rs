@@ -390,8 +390,13 @@ fn snapshot_has_activity(snapshot: &EncounterSnapshot) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use std::sync::Arc;
 
+    use serde_json::json;
+    use tokio::sync::mpsc;
+
+    use crate::dungeon::DungeonCatalog;
+    use crate::history::types::now_ms;
     use crate::history::util::parse_number;
 
     use super::*;
@@ -492,5 +497,125 @@ mod tests {
     fn parse_number_handles_commas_and_percent() {
         assert_eq!(parse_number("12,345.6"), 12345.6);
         assert_eq!(parse_number("98%"), 98.0);
+    }
+
+    #[tokio::test]
+    async fn recorder_aggregates_dungeon_runs_end_to_end() {
+        let base = std::env::temp_dir().join(format!("iinact-tui-test-{}", now_ms()));
+        std::fs::create_dir_all(&base).expect("create temp history dir");
+        let db_path = base.join("encounters.sled");
+        let store = Arc::new(HistoryStore::open(&db_path).expect("open history"));
+
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let catalog = DungeonCatalog::from_str(r#"{ "dungeons": { "Sastasha": {} } }"#)
+            .expect("catalog parse");
+        let mut worker = RecorderWorker::new(
+            store.clone(),
+            tx,
+            Some(Arc::new(catalog)),
+            true,
+        );
+
+        fn snapshot(
+            zone: &str,
+            title: &str,
+            duration: &str,
+            damage: &str,
+            healed: &str,
+            encdps: &str,
+            enchps: &str,
+            active: bool,
+        ) -> EncounterSnapshot {
+            let encounter = EncounterSummary {
+                title: title.to_string(),
+                zone: zone.to_string(),
+                duration: duration.to_string(),
+                encdps: encdps.to_string(),
+                damage: damage.to_string(),
+                enchps: enchps.to_string(),
+                healed: healed.to_string(),
+                is_active: active,
+            };
+            let row = CombatantRow {
+                name: "Alice".into(),
+                job: "NIN".into(),
+                encdps: encdps.parse().unwrap_or(0.0),
+                encdps_str: encdps.to_string(),
+                damage: damage.replace(',', "").parse().unwrap_or(0.0),
+                damage_str: damage.to_string(),
+                share: 1.0,
+                share_str: "100%".into(),
+                enchps: enchps.parse().unwrap_or(0.0),
+                enchps_str: enchps.to_string(),
+                healed: healed.replace(',', "").parse().unwrap_or(0.0),
+                healed_str: healed.to_string(),
+                heal_share: 1.0,
+                heal_share_str: "100%".into(),
+                overheal_pct: "0".into(),
+                crit: "0".into(),
+                dh: "0".into(),
+                deaths: "0".into(),
+            };
+            EncounterSnapshot::new(encounter, vec![row], json!({ "type": "CombatData" }))
+        }
+
+        let snapshots = vec![
+            snapshot("Sastasha", "Pull 1", "00:30", "1,000", "200", "120", "50", true),
+            snapshot("Sastasha", "Pull 1", "00:30", "1,000", "200", "0", "0", false),
+            snapshot("Sastasha", "Pull 2", "00:45", "1,500", "250", "140", "60", true),
+            snapshot("Sastasha", "Pull 2", "00:45", "1,500", "250", "0", "0", false),
+            snapshot(
+                "Middle La Noscea",
+                "Overworld",
+                "00:15",
+                "200",
+                "0",
+                "20",
+                "0",
+                true,
+            ),
+            snapshot(
+                "Middle La Noscea",
+                "Overworld",
+                "00:15",
+                "200",
+                "0",
+                "0",
+                "0",
+                false,
+            ),
+        ];
+
+        for snap in snapshots {
+            worker.on_snapshot(snap).await;
+        }
+
+        worker.on_flush().await;
+
+        let days = store.load_dungeon_days().expect("load days");
+        assert_eq!(days.len(), 1);
+        let day = &days[0];
+        assert_eq!(day.run_count, 1);
+
+        let runs = store
+            .load_dungeon_summaries(&day.iso_date)
+            .expect("load summaries");
+        assert_eq!(runs.len(), 1);
+        let run = &runs[0];
+        assert_eq!(run.child_count, 2);
+        assert!(!run.incomplete);
+
+        let aggregate = store
+            .load_dungeon_record(&run.key)
+            .expect("load aggregate");
+        assert_eq!(aggregate.zone, "Sastasha");
+        assert_eq!(aggregate.child_keys.len(), 2);
+        assert!(!aggregate.incomplete);
+        assert!((aggregate.total_damage - 2500.0).abs() < f64::EPSILON);
+        assert!((aggregate.total_healed - 450.0).abs() < f64::EPSILON);
+
+        drop(worker);
+        drop(store);
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
