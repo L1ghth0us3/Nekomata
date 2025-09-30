@@ -6,7 +6,7 @@ mod state;
 mod types;
 mod view;
 
-pub use history_panel::{HistoryPanel, HistoryPanelLevel};
+pub use history_panel::{DungeonPanelLevel, HistoryPanel, HistoryPanelLevel, HistoryView};
 pub use settings::{AppSettings, SettingsField};
 pub use state::{AppSnapshot, AppState};
 pub use types::{known_jobs, AppEvent, CombatantRow, EncounterSummary};

@@ -12,6 +12,7 @@ pub enum SettingsField {
     IdleTimeout,
     DefaultDecoration,
     DefaultMode,
+    DungeonMode,
 }
 
 impl SettingsField {
@@ -19,15 +20,17 @@ impl SettingsField {
         match self {
             SettingsField::IdleTimeout => SettingsField::DefaultDecoration,
             SettingsField::DefaultDecoration => SettingsField::DefaultMode,
-            SettingsField::DefaultMode => SettingsField::IdleTimeout,
+            SettingsField::DefaultMode => SettingsField::DungeonMode,
+            SettingsField::DungeonMode => SettingsField::IdleTimeout,
         }
     }
 
     pub fn prev(self) -> Self {
         match self {
-            SettingsField::IdleTimeout => SettingsField::DefaultMode,
+            SettingsField::IdleTimeout => SettingsField::DungeonMode,
             SettingsField::DefaultDecoration => SettingsField::IdleTimeout,
             SettingsField::DefaultMode => SettingsField::DefaultDecoration,
+            SettingsField::DungeonMode => SettingsField::DefaultMode,
         }
     }
 }
@@ -37,6 +40,7 @@ pub struct AppSettings {
     pub idle_seconds: u64,
     pub default_decoration: Decoration,
     pub default_mode: ViewMode,
+    pub dungeon_mode_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -45,6 +49,7 @@ impl Default for AppSettings {
             idle_seconds: 5,
             default_decoration: Decoration::Underline,
             default_mode: ViewMode::Dps,
+            dungeon_mode_enabled: true,
         }
     }
 }
@@ -65,6 +70,7 @@ impl From<AppConfig> for AppSettings {
             idle_seconds: value.idle_seconds,
             default_decoration: Decoration::from_config_key(&value.default_decoration),
             default_mode: ViewMode::from_config_key(&value.default_mode),
+            dungeon_mode_enabled: value.dungeon_mode_enabled,
         }
     }
 }
@@ -75,6 +81,7 @@ impl From<AppSettings> for AppConfig {
             idle_seconds: value.idle_seconds,
             default_decoration: value.default_decoration.config_key().to_string(),
             default_mode: value.default_mode.config_key().to_string(),
+            dungeon_mode_enabled: value.dungeon_mode_enabled,
         }
     }
 }

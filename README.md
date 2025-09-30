@@ -15,6 +15,10 @@ A rust-based, dependency‑light DPS meter for FFXIV based entirely in the termi
   - `Decor: none` — no extra decoration (compact one-line rows).
 - Simple settings management through .config file and/or TUI
 - Configurable 'Idle Mode' (more to come...)
+- Dungeon Mode!
+
+## Dungeon Mode
+Dungeon mode was made out of frustration from other DPS interfaces which have very simple logic regarding encounters. This toggleable mode allows you to aggregate encounters into one single dungeon run, while keeping information on every separate encounter. Whenever you enter a new Zone (defined in dungeon-catalog.json), if toggled on, every encounter will be saved under the same umbrella dungeon Zone until the zone changes again. This is also reflected in the history view with a special "dungeon view".
 
 ## Prerequisites
 - Rust 1.74+ (stable) recommended if you're building from source

@@ -8,15 +8,21 @@ use chrono::{DateTime, Local, NaiveDate, TimeZone};
 use crate::config;
 
 use super::types::{
-    DateSummaryRecord, EncounterRecord, EncounterSummaryRecord, HistoryDay, HistoryEncounterItem,
-    HistoryKey, ENCOUNTER_NAMESPACE, META_SCHEMA_VERSION_KEY, SCHEMA_VERSION,
+    DateSummaryRecord, DungeonAggregateRecord, DungeonHistoryDay, DungeonHistoryItem,
+    DungeonSummaryRecord, EncounterRecord, EncounterSummaryRecord, HistoryDay,
+    HistoryEncounterItem, HistoryKey, DUNGEON_NAMESPACE, ENCOUNTER_NAMESPACE,
+    META_SCHEMA_VERSION_KEY, SCHEMA_VERSION,
 };
+use super::util::resolve_title;
 
 /// Thin wrapper around the sled database.
 pub struct HistoryStore {
     encounters: sled::Tree,
     encounter_summaries: sled::Tree,
     date_index: sled::Tree,
+    dungeon_runs: sled::Tree,
+    dungeon_summaries: sled::Tree,
+    dungeon_dates: sled::Tree,
     meta: sled::Tree,
     db: sled::Db,
     root: PathBuf,
@@ -26,6 +32,9 @@ impl HistoryStore {
     pub const ENCOUNTERS_TREE: &'static str = "encounters";
     pub const ENCOUNTER_SUMMARIES_TREE: &'static str = "enc_summaries";
     pub const DATES_TREE: &'static str = "dates";
+    pub const DUNGEON_RUNS_TREE: &'static str = "dungeons";
+    pub const DUNGEON_SUMMARIES_TREE: &'static str = "dun_summaries";
+    pub const DUNGEON_DATES_TREE: &'static str = "dun_dates";
     pub const META_TREE: &'static str = "meta";
 
     pub fn open(path: &Path) -> Result<Self> {
@@ -40,6 +49,15 @@ impl HistoryStore {
         let date_index = db
             .open_tree(Self::DATES_TREE)
             .context("Unable to open history date index tree")?;
+        let dungeon_runs = db
+            .open_tree(Self::DUNGEON_RUNS_TREE)
+            .context("Unable to open dungeon aggregate tree")?;
+        let dungeon_summaries = db
+            .open_tree(Self::DUNGEON_SUMMARIES_TREE)
+            .context("Unable to open dungeon summary tree")?;
+        let dungeon_dates = db
+            .open_tree(Self::DUNGEON_DATES_TREE)
+            .context("Unable to open dungeon date index tree")?;
         let meta = db
             .open_tree(Self::META_TREE)
             .context("Unable to open history metadata tree")?;
@@ -47,6 +65,9 @@ impl HistoryStore {
             encounters,
             encounter_summaries,
             date_index,
+            dungeon_runs,
+            dungeon_summaries,
+            dungeon_dates,
             meta,
             db,
             root: path.to_path_buf(),
@@ -87,6 +108,33 @@ impl HistoryStore {
 
         self.update_date_summary(&summary)
             .context("Failed to update date summary")?;
+        Ok(key)
+    }
+
+    pub fn append_dungeon(&self, record: &DungeonAggregateRecord) -> Result<HistoryKey> {
+        let timestamp = record.last_seen_ms;
+        let discriminator = self
+            .db
+            .generate_id()
+            .context("Failed to generate sled identifier for dungeon key")?;
+        let key = HistoryKey::new(DUNGEON_NAMESPACE, timestamp, discriminator);
+        let key_bytes = key.as_bytes();
+        let bytes =
+            serde_cbor::to_vec(record).context("Failed to serialize dungeon aggregate record")?;
+        self.dungeon_runs
+            .insert(key_bytes.as_slice(), bytes)
+            .context("Failed to persist dungeon aggregate record")?;
+
+        let summary = self.build_dungeon_summary(&key_bytes, record);
+        let summary_bytes =
+            serde_cbor::to_vec(&summary).context("Failed to serialize dungeon summary record")?;
+        self.dungeon_summaries
+            .insert(key_bytes.as_slice(), summary_bytes)
+            .context("Failed to persist dungeon summary")?;
+
+        self.update_dungeon_date_summary(&summary)
+            .context("Failed to update dungeon date summary")?;
+
         Ok(key)
     }
 
@@ -143,6 +191,34 @@ impl HistoryStore {
         }
     }
 
+    fn build_dungeon_summary(
+        &self,
+        key: &[u8],
+        record: &DungeonAggregateRecord,
+    ) -> DungeonSummaryRecord {
+        let start_time = millis_to_local(record.started_ms);
+        let (date_id, started_label) = match start_time {
+            Some(dt) => (dt.date_naive().to_string(), dt.format("%H:%M").to_string()),
+            None => ("unknown".to_string(), "--:--".to_string()),
+        };
+
+        DungeonSummaryRecord {
+            key: key.to_vec(),
+            date_id,
+            zone: record.zone.clone(),
+            started_ms: record.started_ms,
+            last_seen_ms: record.last_seen_ms,
+            duration_secs: record.total_duration_secs,
+            total_damage: record.total_damage,
+            total_healed: record.total_healed,
+            total_encdps: record.total_encdps,
+            child_count: record.child_keys.len(),
+            incomplete: record.incomplete,
+            party_signature: record.party_signature.clone(),
+            started_label,
+        }
+    }
+
     fn update_date_summary(&self, summary: &EncounterSummaryRecord) -> Result<()> {
         let key = summary.date_id.as_bytes();
         let existing = self
@@ -180,6 +256,43 @@ impl HistoryStore {
         Ok(())
     }
 
+    fn update_dungeon_date_summary(&self, summary: &DungeonSummaryRecord) -> Result<()> {
+        let key = summary.date_id.as_bytes();
+        let existing = self
+            .dungeon_dates
+            .get(key)
+            .context("Failed to read dungeon date summary")?;
+
+        let record = if let Some(bytes) = existing {
+            let mut record: DateSummaryRecord = serde_cbor::from_slice(&bytes)
+                .context("Failed to deserialize dungeon date summary")?;
+            if !record
+                .encounter_ids
+                .iter()
+                .any(|existing_key| existing_key == &summary.key)
+            {
+                record.encounter_ids.insert(0, summary.key.clone());
+            }
+            if summary.last_seen_ms > record.last_seen_ms {
+                record.last_seen_ms = summary.last_seen_ms;
+            }
+            record
+        } else {
+            DateSummaryRecord {
+                date_id: summary.date_id.clone(),
+                last_seen_ms: summary.last_seen_ms,
+                encounter_ids: vec![summary.key.clone()],
+            }
+        };
+
+        let bytes = serde_cbor::to_vec(&record)
+            .context("Failed to serialize updated dungeon date summary")?;
+        self.dungeon_dates
+            .insert(key, bytes)
+            .context("Failed to persist dungeon date summary")?;
+        Ok(())
+    }
+
     pub fn load_dates(&self) -> Result<Vec<HistoryDay>> {
         let mut days = Vec::new();
         for entry in self.date_index.iter() {
@@ -187,7 +300,7 @@ impl HistoryStore {
             let record: DateSummaryRecord = serde_cbor::from_slice(value_bytes.as_ref())
                 .context("Failed to deserialize date summary")?;
             let iso_date = String::from_utf8(key_bytes.to_vec()).unwrap_or(record.date_id.clone());
-            let label = format_date_label(&iso_date, record.encounter_ids.len());
+            let label = format_dungeon_date_label(&iso_date, record.encounter_ids.len());
             days.push(HistoryDay {
                 iso_date,
                 label,
@@ -195,6 +308,27 @@ impl HistoryStore {
                 encounters: Vec::new(),
                 encounter_ids: record.encounter_ids,
                 encounters_loaded: false,
+            });
+        }
+        days.sort_by(|a, b| b.iso_date.cmp(&a.iso_date));
+        Ok(days)
+    }
+
+    pub fn load_dungeon_days(&self) -> Result<Vec<DungeonHistoryDay>> {
+        let mut days = Vec::new();
+        for entry in self.dungeon_dates.iter() {
+            let (key_bytes, value_bytes) = entry.context("Failed to iterate dungeon date index")?;
+            let record: DateSummaryRecord = serde_cbor::from_slice(value_bytes.as_ref())
+                .context("Failed to deserialize dungeon date summary")?;
+            let iso_date = String::from_utf8(key_bytes.to_vec()).unwrap_or(record.date_id.clone());
+            let label = format_date_label(&iso_date, record.encounter_ids.len());
+            days.push(DungeonHistoryDay {
+                iso_date,
+                label,
+                run_count: record.encounter_ids.len(),
+                runs: Vec::new(),
+                run_ids: record.encounter_ids,
+                runs_loaded: false,
             });
         }
         days.sort_by(|a, b| b.iso_date.cmp(&a.iso_date));
@@ -232,6 +366,36 @@ impl HistoryStore {
         Ok(build_history_items_from_summaries(summaries))
     }
 
+    pub fn load_dungeon_summaries(&self, date_id: &str) -> Result<Vec<DungeonHistoryItem>> {
+        let key = date_id.as_bytes();
+        let Some(bytes) = self
+            .dungeon_dates
+            .get(key)
+            .context("Failed to read dungeon date summary")?
+        else {
+            return Ok(Vec::new());
+        };
+
+        let date_summary: DateSummaryRecord = serde_cbor::from_slice(bytes.as_ref())
+            .context("Failed to deserialize dungeon date summary")?;
+
+        let mut summaries = Vec::new();
+        for run_id in &date_summary.encounter_ids {
+            if let Some(bytes) = self
+                .dungeon_summaries
+                .get(run_id)
+                .context("Failed to read dungeon summary")?
+            {
+                let summary: DungeonSummaryRecord = serde_cbor::from_slice(bytes.as_ref())
+                    .context("Failed to deserialize dungeon summary record")?;
+                summaries.push(summary);
+            }
+        }
+
+        summaries.sort_by(|a, b| b.last_seen_ms.cmp(&a.last_seen_ms));
+        Ok(build_dungeon_history_items(summaries))
+    }
+
     pub fn load_encounter_record(&self, key: &[u8]) -> Result<EncounterRecord> {
         let Some(bytes) = self
             .encounters
@@ -241,6 +405,18 @@ impl HistoryStore {
             anyhow::bail!("Encounter record not found");
         };
         serde_cbor::from_slice(bytes.as_ref()).context("Failed to deserialize encounter record")
+    }
+
+    pub fn load_dungeon_record(&self, key: &[u8]) -> Result<DungeonAggregateRecord> {
+        let Some(bytes) = self
+            .dungeon_runs
+            .get(key)
+            .context("Failed to read dungeon aggregate record")?
+        else {
+            anyhow::bail!("Dungeon aggregate record not found");
+        };
+        serde_cbor::from_slice(bytes.as_ref())
+            .context("Failed to deserialize dungeon aggregate record")
     }
 
     fn init_schema(&self) -> Result<()> {
@@ -300,16 +476,14 @@ fn format_date_label(iso_date: &str, encounter_count: usize) -> String {
     }
 }
 
-fn resolve_title(record: &EncounterRecord) -> String {
-    let primary = record.encounter.title.trim();
-    if !primary.is_empty() {
-        return primary.to_string();
+fn format_dungeon_date_label(iso_date: &str, run_count: usize) -> String {
+    match NaiveDate::parse_from_str(iso_date, "%Y-%m-%d") {
+        Ok(date) => {
+            let weekday = date.format("%a");
+            format!("{} ({}) · {} runs", iso_date, weekday, run_count)
+        }
+        Err(_) => format!("{} · {} runs", iso_date, run_count),
     }
-    let zone = record.encounter.zone.trim();
-    if !zone.is_empty() {
-        return zone.to_string();
-    }
-    "Unknown Encounter".to_string()
 }
 
 fn build_history_items_from_summaries(
@@ -358,6 +532,49 @@ fn build_history_items_from_summaries(
             }
         })
         .collect()
+}
+
+fn build_dungeon_history_items(summaries: Vec<DungeonSummaryRecord>) -> Vec<DungeonHistoryItem> {
+    summaries
+        .into_iter()
+        .map(|summary| {
+            let duration_label = format_duration_label(summary.duration_secs);
+            let started_label = if summary.started_label.is_empty() {
+                "--:--".to_string()
+            } else {
+                summary.started_label.clone()
+            };
+            DungeonHistoryItem {
+                key: summary.key,
+                zone: summary.zone,
+                started_label,
+                duration_label,
+                total_damage: summary.total_damage,
+                total_healed: summary.total_healed,
+                total_encdps: summary.total_encdps,
+                child_count: summary.child_count,
+                last_seen_ms: summary.last_seen_ms,
+                incomplete: summary.incomplete,
+                party_signature: summary.party_signature,
+                record: None,
+                child_records: Vec::new(),
+            }
+        })
+        .collect()
+}
+
+fn format_duration_label(total_secs: u64) -> String {
+    if total_secs == 0 {
+        return "00:00".to_string();
+    }
+    let hours = total_secs / 3600;
+    let minutes = (total_secs % 3600) / 60;
+    let seconds = total_secs % 60;
+    if hours > 0 {
+        format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+    } else {
+        format!("{:02}:{:02}", minutes, seconds)
+    }
 }
 
 #[cfg(test)]
@@ -411,5 +628,30 @@ mod tests {
         assert_eq!(items[0].display_title, "Rubicante (3)");
         assert_eq!(items[1].display_title, "Rubicante (2)");
         assert_eq!(items[2].display_title, "Rubicante (1)");
+    }
+
+    #[test]
+    fn build_dungeon_history_items_formats_labels() {
+        let summary = DungeonSummaryRecord {
+            key: vec![1],
+            date_id: "2025-09-30".into(),
+            zone: "Sastasha".into(),
+            started_ms: 1_000,
+            started_label: "12:00".into(),
+            last_seen_ms: 2_000,
+            duration_secs: 125,
+            total_damage: 12345.0,
+            total_healed: 234.0,
+            total_encdps: 98.7,
+            child_count: 3,
+            incomplete: false,
+            party_signature: vec!["Alice|NIN".into()],
+        };
+        let items = build_dungeon_history_items(vec![summary]);
+        assert_eq!(items.len(), 1);
+        let item = &items[0];
+        assert_eq!(item.duration_label, "02:05");
+        assert_eq!(item.child_count, 3);
+        assert_eq!(item.zone, "Sastasha");
     }
 }

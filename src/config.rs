@@ -14,6 +14,8 @@ pub struct AppConfig {
     pub default_decoration: String,
     #[serde(default = "default_mode")]
     pub default_mode: String,
+    #[serde(default = "default_dungeon_mode_enabled")]
+    pub dungeon_mode_enabled: bool,
 }
 
 impl Default for AppConfig {
@@ -22,6 +24,7 @@ impl Default for AppConfig {
             idle_seconds: default_idle_seconds(),
             default_decoration: default_decoration(),
             default_mode: default_mode(),
+            dungeon_mode_enabled: default_dungeon_mode_enabled(),
         }
     }
 }
@@ -36,6 +39,10 @@ fn default_decoration() -> String {
 
 fn default_mode() -> String {
     "dps".to_string()
+}
+
+fn default_dungeon_mode_enabled() -> bool {
+    true
 }
 
 pub fn load() -> Result<AppConfig> {

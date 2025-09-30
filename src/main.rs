@@ -19,6 +19,7 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::task;
 
 mod config;
+mod dungeon;
 mod errors;
 mod history;
 mod model;
@@ -30,14 +31,22 @@ mod ui_idle;
 mod ws_client;
 
 use history::HistoryStore;
-use model::{AppEvent, AppSettings, AppState, HistoryPanelLevel, SettingsField, WS_URL_DEFAULT};
+use model::{
+    AppEvent, AppSettings, AppState, DungeonPanelLevel, HistoryPanelLevel, HistoryView,
+    SettingsField, WS_URL_DEFAULT,
+};
 use tracing::level_filters::LevelFilter;
+use tracing::warn;
 
 const HISTORY_LIST_OFFSET: u16 = 4;
 
 enum HistoryTask {
     LoadEncounters { date_id: String },
     LoadEncounterDetail { key: Vec<u8> },
+    LoadDungeonDays,
+    LoadDungeonRuns { date_id: String },
+    LoadDungeonRunDetail { key: Vec<u8> },
+    LoadDungeonEncounter { key: Vec<u8> },
 }
 
 #[tokio::main]
@@ -52,12 +61,17 @@ async fn main() -> Result<()> {
     let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
     let event_tx = tx.clone();
 
-    // History persistence (sled-backed)
-    let history_store = Arc::new(history::HistoryStore::open_default()?);
-    let history_recorder = history::spawn_recorder(history_store.clone(), tx.clone());
+    // Dungeon catalog (optional; disable dungeon mode if unavailable)
+    let dungeon_catalog = match dungeon::DungeonCatalog::load_default() {
+        Ok(catalog) => Some(Arc::new(catalog)),
+        Err(err) => {
+            warn!(error = ?err, "Dungeon catalog unavailable; dungeon mode disabled");
+            None
+        }
+    };
 
     // Load persisted configuration into state
-    let cfg = match config::load() {
+    let app_cfg = match config::load() {
         Ok(c) => c,
         Err(err) => {
             eprintln!("Failed to load config: {err:?}. Using defaults.");
@@ -66,8 +80,17 @@ async fn main() -> Result<()> {
     };
     {
         let mut s = state.write().await;
-        s.apply_settings(AppSettings::from(cfg.clone()));
+        s.apply_settings(AppSettings::from(app_cfg.clone()));
     }
+
+    // History persistence (sled-backed)
+    let history_store = Arc::new(history::HistoryStore::open_default()?);
+    let history_recorder = history::spawn_recorder(
+        history_store.clone(),
+        tx.clone(),
+        dungeon_catalog.clone(),
+        app_cfg.dungeon_mode_enabled,
+    );
 
     // Spawn WS client task (auto-connect and subscribe)
     let ws_url = WS_URL_DEFAULT.to_string();
@@ -144,6 +167,30 @@ async fn main() -> Result<()> {
                                     }
                                 }
                             });
+                            let store_dungeon = history_store.clone();
+                            let tx_dungeon = event_tx.clone();
+                            tokio::spawn(async move {
+                                match task::spawn_blocking(move || {
+                                    store_dungeon.load_dungeon_days()
+                                })
+                                .await
+                                {
+                                    Ok(Ok(days)) => {
+                                        let _ =
+                                            tx_dungeon.send(AppEvent::DungeonDatesLoaded { days });
+                                    }
+                                    Ok(Err(err)) => {
+                                        let _ = tx_dungeon.send(AppEvent::HistoryError {
+                                            message: format!("Failed to load dungeon days: {err}"),
+                                        });
+                                    }
+                                    Err(err) => {
+                                        let _ = tx_dungeon.send(AppEvent::HistoryError {
+                                            message: format!("History load failed: {err}"),
+                                        });
+                                    }
+                                }
+                            });
                         }
                     }
                     KeyCode::Char('i') => {
@@ -169,6 +216,10 @@ async fn main() -> Result<()> {
                                     KeyCode::Right | KeyCode::Enter => s.history_enter(),
                                     KeyCode::Char('m') | KeyCode::Char('M') => {
                                         s.history_toggle_mode()
+                                    }
+                                    KeyCode::Tab => s.history_toggle_view(),
+                                    KeyCode::Char('t') | KeyCode::Char('T') => {
+                                        s.history_toggle_view()
                                     }
                                     _ => {}
                                 }
@@ -227,10 +278,12 @@ async fn main() -> Result<()> {
                                     }
                                 };
                                 if let Some(settings) = updated {
-                                    let cfg: config::AppConfig = settings.into();
-                                    if let Err(err) = config::save(&cfg) {
+                                    let app_cfg: config::AppConfig = settings.into();
+                                    if let Err(err) = config::save(&app_cfg) {
                                         eprintln!("Failed to save config: {err:?}");
                                     }
+                                    history_recorder
+                                        .set_dungeon_mode_enabled(app_cfg.dungeon_mode_enabled);
                                 }
                             }
                             _ => {}
@@ -361,24 +414,55 @@ async fn handle_history_mouse(mouse: MouseEvent, state: &Arc<RwLock<AppState>>) 
         MouseEventKind::ScrollUp => s.history_move_selection(-1),
         MouseEventKind::Down(MouseButton::Left) => {
             let index = mouse.row.saturating_sub(HISTORY_LIST_OFFSET) as usize;
-            match s.history.level {
-                HistoryPanelLevel::Dates => {
-                    if !s.history.days.is_empty() {
-                        let max_index = s.history.days.len().saturating_sub(1);
-                        s.history.selected_day = index.min(max_index);
+            match s.history.view {
+                HistoryView::Encounters => match s.history.level {
+                    HistoryPanelLevel::Dates => {
+                        if !s.history.days.is_empty() {
+                            let max_index = s.history.days.len().saturating_sub(1);
+                            s.history.selected_day = index.min(max_index);
+                        }
+                        s.history_enter();
                     }
-                    s.history_enter();
-                }
-                HistoryPanelLevel::Encounters => {
-                    if let Some(day) = s.history.current_day() {
-                        if !day.encounters.is_empty() {
-                            let max_index = day.encounters.len().saturating_sub(1);
-                            s.history.selected_encounter = index.min(max_index);
-                            s.history_enter();
+                    HistoryPanelLevel::Encounters => {
+                        if let Some(day) = s.history.current_day() {
+                            if !day.encounters.is_empty() {
+                                let max_index = day.encounters.len().saturating_sub(1);
+                                s.history.selected_encounter = index.min(max_index);
+                                s.history_enter();
+                            }
                         }
                     }
-                }
-                HistoryPanelLevel::EncounterDetail => {}
+                    HistoryPanelLevel::EncounterDetail => {}
+                },
+                HistoryView::Dungeons => match s.history.dungeon_level {
+                    DungeonPanelLevel::Dates => {
+                        if !s.history.dungeon_days.is_empty() {
+                            let max_index = s.history.dungeon_days.len().saturating_sub(1);
+                            s.history.dungeon_selected_day = index.min(max_index);
+                        }
+                        s.history_enter();
+                    }
+                    DungeonPanelLevel::Runs => {
+                        if let Some(day) = s.history.current_dungeon_day() {
+                            if !day.runs.is_empty() {
+                                let max_index = day.runs.len().saturating_sub(1);
+                                s.history.dungeon_selected_run = index.min(max_index);
+                                s.history_enter();
+                            }
+                        }
+                    }
+                    DungeonPanelLevel::RunDetail => {
+                        if let Some(run) = s.history.current_dungeon_run() {
+                            if let Some(rec) = run.record.as_ref() {
+                                if !rec.child_keys.is_empty() {
+                                    let max_index = rec.child_keys.len().saturating_sub(1);
+                                    s.history.dungeon_selected_child = index.min(max_index);
+                                }
+                            }
+                        }
+                    }
+                    DungeonPanelLevel::EncounterDetail => {}
+                },
             }
         }
         _ => {}
@@ -390,39 +474,86 @@ fn determine_history_task(state: &mut AppState) -> Option<HistoryTask> {
         return None;
     }
 
-    match state.history.level {
-        HistoryPanelLevel::Encounters => {
-            let need_load = state
-                .history
-                .current_day()
-                .filter(|day| !day.encounters_loaded)
-                .and_then(|day| {
-                    if day.encounter_ids.is_empty() {
-                        None
-                    } else {
-                        Some(day.iso_date.clone())
+    let mut task = None;
+    let mut blocking = false;
+
+    match state.history.view {
+        HistoryView::Encounters => match state.history.level {
+            HistoryPanelLevel::Dates => {}
+            HistoryPanelLevel::Encounters => {
+                if let Some(day) = state.history.current_day() {
+                    if !day.encounters_loaded && !day.encounter_ids.is_empty() {
+                        task = Some(HistoryTask::LoadEncounters {
+                            date_id: day.iso_date.clone(),
+                        });
+                        blocking = true;
                     }
-                });
-            if let Some(date_id) = need_load {
-                state.history_set_loading();
-                return Some(HistoryTask::LoadEncounters { date_id });
+                }
             }
-        }
-        HistoryPanelLevel::EncounterDetail => {
-            let need_load = state
-                .history
-                .current_encounter()
-                .filter(|enc| enc.record.is_none())
-                .map(|enc| enc.key.clone());
-            if let Some(key) = need_load {
-                state.history_set_loading();
-                return Some(HistoryTask::LoadEncounterDetail { key });
+            HistoryPanelLevel::EncounterDetail => {
+                if let Some(enc) = state.history.current_encounter() {
+                    if enc.record.is_none() {
+                        task = Some(HistoryTask::LoadEncounterDetail {
+                            key: enc.key.clone(),
+                        });
+                        blocking = true;
+                    }
+                }
             }
-        }
-        HistoryPanelLevel::Dates => {}
+        },
+        HistoryView::Dungeons => match state.history.dungeon_level {
+            DungeonPanelLevel::Dates => {
+                if state.history.dungeon_days.is_empty() {
+                    task = Some(HistoryTask::LoadDungeonDays);
+                    blocking = true;
+                }
+            }
+            DungeonPanelLevel::Runs => {
+                if let Some(day) = state.history.current_dungeon_day() {
+                    if !day.runs_loaded && !day.run_ids.is_empty() {
+                        task = Some(HistoryTask::LoadDungeonRuns {
+                            date_id: day.iso_date.clone(),
+                        });
+                        blocking = true;
+                    }
+                }
+            }
+            DungeonPanelLevel::RunDetail => {
+                if let Some(run) = state.history.current_dungeon_run() {
+                    if run.record.is_none() {
+                        task = Some(HistoryTask::LoadDungeonRunDetail {
+                            key: run.key.clone(),
+                        });
+                        blocking = true;
+                    }
+                }
+            }
+            DungeonPanelLevel::EncounterDetail => {
+                if let Some(run) = state.history.current_dungeon_run() {
+                    if let Some(rec) = run.record.as_ref() {
+                        let idx = state.history.dungeon_selected_child;
+                        if let Some(key) = rec.child_keys.get(idx) {
+                            let needs_load = run
+                                .child_records
+                                .get(idx)
+                                .and_then(|entry| entry.as_ref())
+                                .is_none();
+                            if needs_load {
+                                task = Some(HistoryTask::LoadDungeonEncounter { key: key.clone() });
+                                blocking = false;
+                            }
+                        }
+                    }
+                }
+            }
+        },
     }
 
-    None
+    if blocking {
+        state.history_set_loading();
+    }
+
+    task
 }
 
 fn spawn_history_task(
@@ -479,6 +610,130 @@ fn spawn_history_task(
                     }
                     Err(err) => {
                         let _ = tx_detail.send(AppEvent::HistoryError {
+                            message: format!("History load failed: {err}"),
+                        });
+                    }
+                }
+            });
+        }
+        HistoryTask::LoadDungeonDays => {
+            let tx_days = tx.clone();
+            let store_clone = store.clone();
+            tokio::spawn(async move {
+                let result = task::spawn_blocking(move || store_clone.load_dungeon_days()).await;
+                match result {
+                    Ok(Ok(days)) => {
+                        let _ = tx_days.send(AppEvent::DungeonDatesLoaded { days });
+                    }
+                    Ok(Err(err)) => {
+                        let _ = tx_days.send(AppEvent::HistoryError {
+                            message: format!("Failed to load dungeon days: {err}"),
+                        });
+                    }
+                    Err(err) => {
+                        let _ = tx_days.send(AppEvent::HistoryError {
+                            message: format!("History load failed: {err}"),
+                        });
+                    }
+                }
+            });
+        }
+        HistoryTask::LoadDungeonRuns { date_id } => {
+            let tx_runs = tx.clone();
+            let store_clone = store.clone();
+            tokio::spawn(async move {
+                let date_for_block = date_id.clone();
+                let result = task::spawn_blocking(move || {
+                    store_clone.load_dungeon_summaries(&date_for_block)
+                })
+                .await;
+                match result {
+                    Ok(Ok(runs)) => {
+                        let _ = tx_runs.send(AppEvent::DungeonRunsLoaded { date_id, runs });
+                    }
+                    Ok(Err(err)) => {
+                        let _ = tx_runs.send(AppEvent::HistoryError {
+                            message: format!("Failed to load dungeon runs: {err}"),
+                        });
+                    }
+                    Err(err) => {
+                        let _ = tx_runs.send(AppEvent::HistoryError {
+                            message: format!("History load failed: {err}"),
+                        });
+                    }
+                }
+            });
+        }
+        HistoryTask::LoadDungeonRunDetail { key } => {
+            let tx_run = tx.clone();
+            let store_clone = store.clone();
+            tokio::spawn(async move {
+                let key_for_block = key.clone();
+                let store_for_block = store_clone.clone();
+                let result = task::spawn_blocking(move || {
+                    store_for_block.load_dungeon_record(&key_for_block)
+                })
+                .await;
+                match result {
+                    Ok(Ok(record)) => {
+                        let child_keys = record.child_keys.clone();
+                        let _ = tx_run.send(AppEvent::DungeonRunLoaded {
+                            key: key.clone(),
+                            record: record.clone(),
+                        });
+
+                        if !child_keys.is_empty() {
+                            for child_key in child_keys {
+                                let store_child = store_clone.clone();
+                                let tx_child = tx_run.clone();
+                                tokio::spawn(async move {
+                                    let child_key_for_block = child_key.clone();
+                                    let res = task::spawn_blocking(move || {
+                                        store_child.load_encounter_record(&child_key_for_block)
+                                    })
+                                    .await;
+                                    if let Ok(Ok(child_record)) = res {
+                                        let _ = tx_child.send(AppEvent::DungeonEncounterLoaded {
+                                            key: child_key,
+                                            record: child_record,
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    Ok(Err(err)) => {
+                        let _ = tx_run.send(AppEvent::HistoryError {
+                            message: format!("Failed to load dungeon run: {err}"),
+                        });
+                    }
+                    Err(err) => {
+                        let _ = tx_run.send(AppEvent::HistoryError {
+                            message: format!("History load failed: {err}"),
+                        });
+                    }
+                }
+            });
+        }
+        HistoryTask::LoadDungeonEncounter { key } => {
+            let tx_encounter = tx.clone();
+            let store_clone = store.clone();
+            tokio::spawn(async move {
+                let key_for_block = key.clone();
+                let result =
+                    task::spawn_blocking(move || store_clone.load_encounter_record(&key_for_block))
+                        .await;
+                match result {
+                    Ok(Ok(record)) => {
+                        let _ = tx_encounter.send(AppEvent::DungeonEncounterLoaded { key, record });
+                    }
+                    Ok(Err(err)) => {
+                        let _ = tx_encounter.send(AppEvent::HistoryError {
+                            message: format!("Failed to load dungeon encounter: {err}"),
+                        });
+                    }
+                    Err(err) => {
+                        let _ = tx_encounter.send(AppEvent::HistoryError {
                             message: format!("History load failed: {err}"),
                         });
                     }

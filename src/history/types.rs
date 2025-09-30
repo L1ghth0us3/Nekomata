@@ -6,6 +6,7 @@ use serde_json::Value;
 use crate::model::{CombatantRow, EncounterSummary};
 
 pub(crate) const ENCOUNTER_NAMESPACE: &str = "enc";
+pub(crate) const DUNGEON_NAMESPACE: &str = "dun";
 pub(crate) const KEY_SEPARATOR: u8 = 0x1F;
 pub(crate) const SCHEMA_VERSION: u32 = 2;
 pub(crate) const META_SCHEMA_VERSION_KEY: &[u8] = b"schema/version";
@@ -85,6 +86,22 @@ pub struct EncounterRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DungeonAggregateRecord {
+    pub version: u32,
+    pub zone: String,
+    pub started_ms: u64,
+    pub last_seen_ms: u64,
+    pub party_signature: Vec<String>,
+    pub total_duration_secs: u64,
+    pub total_damage: f64,
+    pub total_healed: f64,
+    pub total_encdps: f64,
+    pub child_keys: Vec<Vec<u8>>,
+    pub child_titles: Vec<String>,
+    pub incomplete: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncounterFrame {
     pub received_ms: u64,
     pub encounter: EncounterSummary,
@@ -133,6 +150,55 @@ pub struct EncounterSummaryRecord {
     pub zone: String,
     pub snapshots: u32,
     pub frames: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DungeonSummaryRecord {
+    pub key: Vec<u8>,
+    pub date_id: String,
+    pub zone: String,
+    pub started_ms: u64,
+    pub started_label: String,
+    pub last_seen_ms: u64,
+    pub duration_secs: u64,
+    pub total_damage: f64,
+    pub total_healed: f64,
+    pub total_encdps: f64,
+    pub child_count: usize,
+    pub incomplete: bool,
+    pub party_signature: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DungeonHistoryItem {
+    pub key: Vec<u8>,
+    pub zone: String,
+    pub started_label: String,
+    pub duration_label: String,
+    pub total_damage: f64,
+    pub total_healed: f64,
+    pub total_encdps: f64,
+    pub child_count: usize,
+    pub last_seen_ms: u64,
+    pub incomplete: bool,
+    pub party_signature: Vec<String>,
+    #[serde(default)]
+    pub record: Option<DungeonAggregateRecord>,
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub child_records: Vec<Option<EncounterRecord>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DungeonHistoryDay {
+    pub iso_date: String,
+    pub label: String,
+    pub run_count: usize,
+    #[serde(default)]
+    pub runs: Vec<DungeonHistoryItem>,
+    #[serde(default)]
+    pub run_ids: Vec<Vec<u8>>,
+    #[serde(default)]
+    pub runs_loaded: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -4,7 +4,10 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::AppError;
-use crate::history::{EncounterRecord, HistoryDay, HistoryEncounterItem};
+use crate::history::{
+    DungeonAggregateRecord, DungeonHistoryDay, DungeonHistoryItem, EncounterRecord, HistoryDay,
+    HistoryEncounterItem,
+};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EncounterSummary {
@@ -58,6 +61,24 @@ pub enum AppEvent {
     HistoryEncounterLoaded {
         key: Vec<u8>,
         record: EncounterRecord,
+    },
+    DungeonDatesLoaded {
+        days: Vec<DungeonHistoryDay>,
+    },
+    DungeonRunsLoaded {
+        date_id: String,
+        runs: Vec<DungeonHistoryItem>,
+    },
+    DungeonRunLoaded {
+        key: Vec<u8>,
+        record: DungeonAggregateRecord,
+    },
+    DungeonEncounterLoaded {
+        key: Vec<u8>,
+        record: EncounterRecord,
+    },
+    DungeonSessionUpdate {
+        active_zone: Option<String>,
     },
     HistoryError {
         message: String,

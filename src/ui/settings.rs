@@ -13,6 +13,7 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     let idle_selected = matches!(snapshot.settings_cursor, SettingsField::IdleTimeout);
     let decor_selected = matches!(snapshot.settings_cursor, SettingsField::DefaultDecoration);
     let mode_selected = matches!(snapshot.settings_cursor, SettingsField::DefaultMode);
+    let dungeon_selected = matches!(snapshot.settings_cursor, SettingsField::DungeonMode);
 
     let mut lines = Vec::new();
     lines.push(Line::from(vec![Span::styled("Settings", title_style())]));
@@ -38,6 +39,15 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
         mode_selected,
         "Default mode",
         snapshot.settings.default_mode.label().to_string(),
+    ));
+    lines.push(setting_line(
+        dungeon_selected,
+        "Dungeon Mode",
+        if snapshot.settings.dungeon_mode_enabled {
+            "ON".to_string()
+        } else {
+            "OFF".to_string()
+        },
     ));
     lines.push(Line::default());
 

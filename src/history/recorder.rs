@@ -4,11 +4,14 @@ use serde_json::Value;
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::task;
 
+use crate::dungeon::DungeonCatalog;
 use crate::errors::{AppError, AppErrorKind};
 use crate::model::{AppEvent, CombatantRow, EncounterSummary};
 
+use super::dungeon::{DungeonRecorder, DungeonRecorderUpdate, DungeonZoneState};
 use super::store::HistoryStore;
-use super::types::{EncounterFrame, EncounterRecord, EncounterSnapshot};
+use super::types::{DungeonAggregateRecord, EncounterFrame, EncounterRecord, EncounterSnapshot};
+use super::util::{parse_duration_secs, parse_number};
 
 pub struct RecorderHandle {
     inner: Arc<RecorderInner>,
@@ -40,6 +43,10 @@ impl RecorderHandle {
         let _ = self.inner.tx.send(RecorderMessage::Flush);
     }
 
+    pub fn set_dungeon_mode_enabled(&self, enabled: bool) {
+        let _ = self.inner.tx.send(RecorderMessage::SetDungeonMode(enabled));
+    }
+
     pub async fn shutdown(&self) {
         let _ = self.inner.tx.send(RecorderMessage::Shutdown);
         if let Some(rx) = self.take_shutdown_receiver().await {
@@ -64,21 +71,28 @@ impl Clone for RecorderHandle {
 enum RecorderMessage {
     Snapshot(Box<EncounterSnapshot>),
     Flush,
+    SetDungeonMode(bool),
     Shutdown,
 }
 
 pub fn spawn_recorder(
     store: Arc<HistoryStore>,
     event_tx: mpsc::UnboundedSender<AppEvent>,
+    dungeon_catalog: Option<Arc<DungeonCatalog>>,
+    dungeon_mode_enabled: bool,
 ) -> RecorderHandle {
     let (tx, mut rx) = mpsc::unbounded_channel();
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
     tokio::spawn(async move {
-        let mut worker = RecorderWorker::new(store, event_tx);
+        let mut worker =
+            RecorderWorker::new(store, event_tx, dungeon_catalog, dungeon_mode_enabled);
         loop {
             match rx.recv().await {
                 Some(RecorderMessage::Snapshot(snapshot)) => worker.on_snapshot(*snapshot).await,
                 Some(RecorderMessage::Flush) => worker.on_flush().await,
+                Some(RecorderMessage::SetDungeonMode(enabled)) => {
+                    worker.on_toggle_dungeon_mode(enabled).await;
+                }
                 Some(RecorderMessage::Shutdown) => {
                     worker.on_flush().await;
                     break;
@@ -103,14 +117,21 @@ struct RecorderWorker {
     store: Arc<HistoryStore>,
     current: Option<ActiveEncounter>,
     events: mpsc::UnboundedSender<AppEvent>,
+    dungeon: DungeonRecorder,
 }
 
 impl RecorderWorker {
-    fn new(store: Arc<HistoryStore>, events: mpsc::UnboundedSender<AppEvent>) -> Self {
+    fn new(
+        store: Arc<HistoryStore>,
+        events: mpsc::UnboundedSender<AppEvent>,
+        dungeon_catalog: Option<Arc<DungeonCatalog>>,
+        dungeon_mode_enabled: bool,
+    ) -> Self {
         Self {
             store,
             current: None,
             events,
+            dungeon: DungeonRecorder::new(dungeon_catalog, dungeon_mode_enabled),
         }
     }
 
@@ -145,6 +166,33 @@ impl RecorderWorker {
 
     async fn on_flush(&mut self) {
         self.flush_active().await;
+        let update = self.dungeon.flush(true);
+        self.handle_dungeon_update(update).await;
+    }
+
+    async fn on_toggle_dungeon_mode(&mut self, enabled: bool) {
+        let update = self.dungeon.set_enabled(enabled);
+        self.handle_dungeon_update(update).await;
+    }
+
+    async fn handle_dungeon_update(&mut self, update: DungeonRecorderUpdate) {
+        for aggregate in update.aggregates {
+            self.persist_dungeon_record(aggregate).await;
+        }
+        if let Some(zone_state) = update.zone_state {
+            match zone_state {
+                DungeonZoneState::Active(zone) => {
+                    let _ = self.events.send(AppEvent::DungeonSessionUpdate {
+                        active_zone: Some(zone),
+                    });
+                }
+                DungeonZoneState::Inactive => {
+                    let _ = self
+                        .events
+                        .send(AppEvent::DungeonSessionUpdate { active_zone: None });
+                }
+            }
+        }
     }
 
     async fn flush_active(&mut self) {
@@ -154,8 +202,13 @@ impl RecorderWorker {
             if !record.saw_active && record.rows.is_empty() {
                 return;
             }
-            match task::spawn_blocking(move || store.append(&record)).await {
-                Ok(Ok(_)) => {}
+            match task::spawn_blocking(move || store.append(&record).map(|key| (key, record))).await
+            {
+                Ok(Ok((key, record))) => {
+                    let key_bytes = key.as_bytes();
+                    let update = self.dungeon.on_encounter(&record, key_bytes);
+                    self.handle_dungeon_update(update).await;
+                }
                 Ok(Err(err)) => {
                     let message = format!("Failed to persist encounter history: {err}");
                     Self::report_error(&self.events, message, AppErrorKind::Storage);
@@ -164,6 +217,21 @@ impl RecorderWorker {
                     let message = format!("History recorder task join error: {err}");
                     Self::report_error(&self.events, message, AppErrorKind::History);
                 }
+            }
+        }
+    }
+
+    async fn persist_dungeon_record(&self, record: DungeonAggregateRecord) {
+        let store = Arc::clone(&self.store);
+        match task::spawn_blocking(move || store.append_dungeon(&record)).await {
+            Ok(Ok(_)) => {}
+            Ok(Err(err)) => {
+                let message = format!("Failed to persist dungeon aggregate: {err}");
+                Self::report_error(&self.events, message, AppErrorKind::Storage);
+            }
+            Err(err) => {
+                let message = format!("Dungeon recorder task join error: {err}");
+                Self::report_error(&self.events, message, AppErrorKind::History);
             }
         }
     }
@@ -320,47 +388,11 @@ fn snapshot_has_activity(snapshot: &EncounterSnapshot) -> bool {
         .any(|row| row.damage > 0.0 || row.healed > 0.0 || row.encdps > 0.0 || row.enchps > 0.0)
 }
 
-fn parse_duration_secs(s: &str) -> Option<u64> {
-    if s.trim().is_empty() {
-        return None;
-    }
-    let mut parts: Vec<&str> = s.trim().split(':').collect();
-    if parts.is_empty() {
-        return None;
-    }
-    if parts.len() > 3 {
-        return None;
-    }
-    let mut value = 0u64;
-    let mut multiplier = 1u64;
-    while let Some(part) = parts.pop() {
-        let part = part.trim();
-        if part.is_empty() || part.contains('-') {
-            return None;
-        }
-        let parsed = part.parse::<u64>().ok()?;
-        value += parsed.saturating_mul(multiplier);
-        multiplier = multiplier.saturating_mul(60);
-    }
-    Some(value)
-}
-
-fn parse_number(s: &str) -> f64 {
-    let mut buf = String::with_capacity(s.len());
-    for ch in s.chars() {
-        if ch.is_ascii_digit() || matches!(ch, '.' | '+' | '-') {
-            buf.push(ch);
-        }
-    }
-    if buf.is_empty() {
-        return 0.0;
-    }
-    buf.parse::<f64>().unwrap_or(0.0)
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+
+    use crate::history::util::parse_number;
 
     use super::*;
 
@@ -396,13 +428,6 @@ mod tests {
             deaths: "0".into(),
         };
         EncounterSnapshot::new(encounter, vec![row], json!({ "type": "CombatData" }))
-    }
-
-    #[test]
-    fn duration_parsing_supports_mm_ss() {
-        assert_eq!(parse_duration_secs("01:30"), Some(90));
-        assert_eq!(parse_duration_secs("1:02:03"), Some(3723));
-        assert_eq!(parse_duration_secs("--:--"), None);
     }
 
     #[test]
