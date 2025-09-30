@@ -167,6 +167,11 @@ fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     let mut state = ListState::default();
     state.select(Some(s.history.selected_day));
 
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .split(area);
+
     let list = List::new(items)
         .block(Block::default().borders(Borders::ALL).title("Dates"))
         .highlight_style(
@@ -176,7 +181,12 @@ fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, area, &mut state);
+    f.render_stateful_widget(list, chunks[0], &mut state);
+
+    let hint = Paragraph::new("Tab swaps view · Enter view encounters")
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::NONE));
+    f.render_widget(hint, chunks[1]);
 }
 
 fn draw_encounters(f: &mut Frame, area: Rect, s: &AppSnapshot) {
@@ -462,6 +472,11 @@ fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     let mut state = ListState::default();
     state.select(Some(s.history.dungeon_selected_day));
 
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .split(area);
+
     let list = List::new(items)
         .block(
             Block::default()
@@ -475,7 +490,12 @@ fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, area, &mut state);
+    f.render_stateful_widget(list, chunks[0], &mut state);
+
+    let hint = Paragraph::new("Tab swaps view · Enter view runs")
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::NONE));
+    f.render_widget(hint, chunks[1]);
 }
 
 fn draw_dungeon_runs(f: &mut Frame, area: Rect, s: &AppSnapshot) {
