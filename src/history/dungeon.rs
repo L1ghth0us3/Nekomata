@@ -288,7 +288,10 @@ mod tests {
         let overworld = make_record("Middle La Noscea", "FATE", "00:15", "500", "0");
         let update = recorder.on_encounter(&overworld, vec![2]);
         assert_eq!(update.aggregates.len(), 1);
-        assert!(matches!(update.zone_state, Some(DungeonZoneState::Inactive)));
+        assert!(matches!(
+            update.zone_state,
+            Some(DungeonZoneState::Inactive)
+        ));
         let aggregate = update.aggregates.first().expect("aggregate");
         assert_eq!(aggregate.zone, "Sastasha");
         assert_eq!(aggregate.child_keys.len(), 1);

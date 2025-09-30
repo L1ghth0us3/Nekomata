@@ -501,7 +501,7 @@ mod tests {
 
     #[tokio::test]
     async fn recorder_aggregates_dungeon_runs_end_to_end() {
-        let base = std::env::temp_dir().join(format!("iinact-tui-test-{}", now_ms()));
+        let base = std::env::temp_dir().join(format!("nekomata-test-{}", now_ms()));
         std::fs::create_dir_all(&base).expect("create temp history dir");
         let db_path = base.join("encounters.sled");
         let store = Arc::new(HistoryStore::open(&db_path).expect("open history"));
@@ -509,12 +509,7 @@ mod tests {
         let (tx, _rx) = mpsc::unbounded_channel();
         let catalog = DungeonCatalog::from_str(r#"{ "dungeons": { "Sastasha": {} } }"#)
             .expect("catalog parse");
-        let mut worker = RecorderWorker::new(
-            store.clone(),
-            tx,
-            Some(Arc::new(catalog)),
-            true,
-        );
+        let mut worker = RecorderWorker::new(store.clone(), tx, Some(Arc::new(catalog)), true);
 
         fn snapshot(
             zone: &str,
@@ -560,10 +555,18 @@ mod tests {
         }
 
         let snapshots = vec![
-            snapshot("Sastasha", "Pull 1", "00:30", "1,000", "200", "120", "50", true),
-            snapshot("Sastasha", "Pull 1", "00:30", "1,000", "200", "0", "0", false),
-            snapshot("Sastasha", "Pull 2", "00:45", "1,500", "250", "140", "60", true),
-            snapshot("Sastasha", "Pull 2", "00:45", "1,500", "250", "0", "0", false),
+            snapshot(
+                "Sastasha", "Pull 1", "00:30", "1,000", "200", "120", "50", true,
+            ),
+            snapshot(
+                "Sastasha", "Pull 1", "00:30", "1,000", "200", "0", "0", false,
+            ),
+            snapshot(
+                "Sastasha", "Pull 2", "00:45", "1,500", "250", "140", "60", true,
+            ),
+            snapshot(
+                "Sastasha", "Pull 2", "00:45", "1,500", "250", "0", "0", false,
+            ),
             snapshot(
                 "Middle La Noscea",
                 "Overworld",
@@ -605,9 +608,7 @@ mod tests {
         assert_eq!(run.child_count, 2);
         assert!(!run.incomplete);
 
-        let aggregate = store
-            .load_dungeon_record(&run.key)
-            .expect("load aggregate");
+        let aggregate = store.load_dungeon_record(&run.key).expect("load aggregate");
         assert_eq!(aggregate.zone, "Sastasha");
         assert_eq!(aggregate.child_keys.len(), 2);
         assert!(!aggregate.incomplete);

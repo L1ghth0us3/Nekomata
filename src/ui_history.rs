@@ -726,9 +726,10 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         f.render_stateful_widget(list, layout[1], &mut list_state);
     }
 
-    let instructions = Paragraph::new("← runs · ↑/↓ select pull · Enter view pull · m toggles DPS/Heal")
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::NONE));
+    let instructions =
+        Paragraph::new("← runs · ↑/↓ select pull · Enter view pull · m toggles DPS/Heal")
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::NONE));
     f.render_widget(instructions, layout[2]);
 }
 

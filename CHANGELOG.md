@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is inspired by Keep a Changelog and uses calendar dates (YYYY‑MM‑DD).
 
 ## [0.3.0] - Unreleased
+- Rebranded the project as **Nekomata**, updating crate/binary names, docs, and visuals while preserving compatibility with existing IINACT-powered workflows.
+- Introduced new configuration and history paths (`~/.config/nekomata`) and environment variables (`NEKOMATA_CONFIG_DIR`, `NEKOMATA_DUNGEON_CATALOG`) with automatic fallback to legacy locations.
 - Added a heal view and toggle to history window.
 - Added sorting and graph update for heal live view.
 - Refactored the model.rs into dedicated submodules (`history_panel`, `settings`, `state`, `types`, `view`)
@@ -20,7 +22,7 @@ Highlights
 - Added a modal settings pane (`s`) that lets you adjust configurable options without leaving the meter.
 - Idle detection now surfaces in the footer as “Connected (idle)” once no active combat has been seen for the configured timeout.
 - Idle timeout is user-adjustable with `↑/↓` while the settings pane is open and persists between runs.
-- Configuration is stored as JSON under `~/.config/iinact-tui/iinact-tui.config` (override via `IINACT_TUI_CONFIG_DIR`; Windows uses `%APPDATA%\iinact-tui`).
+- Configuration is stored as JSON under `~/.config/nekomata/nekomata.config` (override via `NEKOMATA_CONFIG_DIR`; Windows uses `%APPDATA%\nekomata`).
 - Generalized status colors: idle shows dark orange, disconnect shows red.
 - New configuration options allow choosing the default decoration style and opening mode; adjustments apply immediately and persist.
 
@@ -34,7 +36,7 @@ Controls
 - `q` / `Esc`: quit.
 
 ## [0.1.0] - 2025-09-20
-Initial MVP of the IINACT terminal DPS meter (ratatui).
+Initial MVP of the Nekomata terminal DPS meter for the IINACT plugin (ratatui).
 
 Highlights
 - Auto‑connects to IINACT at `ws://127.0.0.1:10501/ws` and subscribes to `CombatData` + `LogLine`.

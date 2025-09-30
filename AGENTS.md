@@ -64,7 +64,7 @@ python3 query_iinact.py --once
 python3 query_iinact.py --show-logline
 ```
 
-## Guidance for Agents (Rust ratatui target)
+## Guidance for Agents (Nekomata TUI target)
 - Use a WS client (e.g., `tokio-tungstenite`) to connect to `ws://127.0.0.1:10501/ws`.
 - Send `{"call":"getLanguage"}` to verify connectivity.
 - Send `{"call":"subscribe","events":["CombatData","LogLine"]}` to begin streaming.
@@ -92,13 +92,13 @@ python3 query_iinact.py --show-logline
 - Settings & persistence
   - `s` opens a modal settings pane; `↑/↓` moves the selection, `←/→` adjusts the highlighted value.
   - Idle timeout accepts `0` to disable idle mode; defaults for decoration and opening mode are configured here and persist to disk.
-  - Settings persist to `~/.config/iinact-tui/iinact-tui.config` (override with `IINACT_TUI_CONFIG_DIR`; Windows uses `%APPDATA%\iinact-tui`).
+- Settings persist to `~/.config/nekomata/nekomata.config` (override with `NEKOMATA_CONFIG_DIR`; Windows uses `%APPDATA%\nekomata`; the legacy `IINACT_TUI_CONFIG_DIR` still works).
 - Styling
   - Foreground-only for normal widgets to preserve terminal blur/transparency. Background is used only for the meter fill.
 - Role colors (xterm-256): tank=75, healer=41, dps=124; job name text uses per-job colors.
 
 ## Encounter History (sled-backed)
-- Storage lives under the same config root, inside `history/encounters.sled`; override via `IINACT_TUI_CONFIG_DIR` like the main config file.
+- Storage lives under the same config root, inside `history/encounters.sled`; override via `NEKOMATA_CONFIG_DIR` like the main config file (legacy `IINACT_TUI_CONFIG_DIR` remains supported).
 - `HistoryStore` wraps sled trees; keys use `enc::<ms_since_epoch>::<id>` ordering so new namespaces can be added without migrations.
 - `spawn_recorder` starts a background task fed by `RecorderHandle`; push snapshots with `record_components(encounter, rows, raw_json)` and call `flush()` when tearing down connections.
 - Records capture first/last seen timestamps, the final encounter summary, combatant rows, and the last raw JSON payload. Empty passive snapshots are skipped to avoid noise.
