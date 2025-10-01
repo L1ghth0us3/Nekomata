@@ -70,12 +70,9 @@ The app will connect automatically to `ws://127.0.0.1:10501/ws` and begin render
 - History or live table is empty? Only party and combat jobs are shown; pets/limit break lines are filtered out. (for now)
 
 ## Roadmap (short)
-- "Dungeon Mode" to merge Encounters in the history for the same dungeon.
-- "Dungeon View" to view historical dungeon runs with more information.
 - Dedicated Limit Break window (who/when/how much/what level)
 - Theme presets (purple/cyberpunk, monochrome, gray meters).
 - Toggle for background opacity
-- Persist meter mode and layout preference.
 
 ## License
 This project does not currently declare a license. Ask before redistributing.
