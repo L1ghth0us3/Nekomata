@@ -47,6 +47,10 @@ impl RecorderHandle {
         let _ = self.inner.tx.send(RecorderMessage::SetDungeonMode(enabled));
     }
 
+    pub fn cut_dungeon_session(&self) {
+        let _ = self.inner.tx.send(RecorderMessage::CutDungeonSession);
+    }
+
     pub async fn shutdown(&self) {
         let _ = self.inner.tx.send(RecorderMessage::Shutdown);
         if let Some(rx) = self.take_shutdown_receiver().await {
@@ -72,6 +76,7 @@ enum RecorderMessage {
     Snapshot(Box<EncounterSnapshot>),
     Flush,
     SetDungeonMode(bool),
+    CutDungeonSession,
     Shutdown,
 }
 
@@ -92,6 +97,9 @@ pub fn spawn_recorder(
                 Some(RecorderMessage::Flush) => worker.on_flush().await,
                 Some(RecorderMessage::SetDungeonMode(enabled)) => {
                     worker.on_toggle_dungeon_mode(enabled).await;
+                }
+                Some(RecorderMessage::CutDungeonSession) => {
+                    worker.on_cut_dungeon_session().await;
                 }
                 Some(RecorderMessage::Shutdown) => {
                     worker.on_flush().await;
@@ -172,6 +180,12 @@ impl RecorderWorker {
 
     async fn on_toggle_dungeon_mode(&mut self, enabled: bool) {
         let update = self.dungeon.set_enabled(enabled);
+        self.handle_dungeon_update(update).await;
+    }
+
+    async fn on_cut_dungeon_session(&mut self) {
+        self.flush_active().await;
+        let update = self.dungeon.flush(false);
         self.handle_dungeon_update(update).await;
     }
 

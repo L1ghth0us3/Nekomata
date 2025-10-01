@@ -52,6 +52,7 @@ The app will connect automatically to `ws://127.0.0.1:10501/ws` and begin render
 - `s` — toggle the settings pane
 - `h` — open/close the encounter history panel
 - `i` — when idle mode is active, toggle the idle overlay on/off to peek at the last encounter
+- `Shift-D` — when dungeon mode is active, cut off a dungeon run and save it
 - `↑/↓` — move the selection inside the settings pane
 - `←/→` — adjust the selected setting (idle timeout, default decoration, default mode)
 

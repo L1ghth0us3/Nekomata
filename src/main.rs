@@ -6,8 +6,8 @@ use std::{io, sync::Arc};
 
 use anyhow::{bail, Context, Result};
 use crossterm::event::{
-    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseButton,
-    MouseEvent, MouseEventKind,
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+    MouseButton, MouseEvent, MouseEventKind,
 };
 use crossterm::execute;
 use crossterm::terminal::{
@@ -239,6 +239,9 @@ async fn main() -> Result<()> {
                         }
 
                         match key.code {
+                            KeyCode::Char('D') if key.modifiers.contains(KeyModifiers::SHIFT) => {
+                                history_recorder.cut_dungeon_session();
+                            }
                             KeyCode::Char('d') => {
                                 let mut s = state.write().await;
                                 s.decoration = s.decoration.next();
