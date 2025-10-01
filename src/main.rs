@@ -6,8 +6,8 @@ use std::{io, sync::Arc};
 
 use anyhow::{bail, Context, Result};
 use crossterm::event::{
-    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton, MouseEvent,
-    MouseEventKind,
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseButton,
+    MouseEvent, MouseEventKind,
 };
 use crossterm::execute;
 use crossterm::terminal::{
@@ -127,7 +127,7 @@ async fn main() -> Result<()> {
         // Non-blocking input with small timeout so we keep redrawing
         if event::poll(Duration::from_millis(10))? {
             match event::read()? {
-                Event::Key(key) => match key.code {
+                Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => {
                         let mut s = state.write().await;
                         if s.history.visible {
@@ -290,6 +290,7 @@ async fn main() -> Result<()> {
                         }
                     }
                 },
+                Event::Key(_) => {}
                 Event::Mouse(mouse) => {
                     handle_history_mouse(mouse, &state).await;
                     let mut s = state.write().await;
