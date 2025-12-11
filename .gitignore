@@ -1,8 +1,42 @@
+# Rust build artifacts
 /target
 **/*.rs.bk
-Cargo.lock
-/recon
+**/*.pdb
 
+# Cargo.lock is tracked for reproducible builds (binary application)
+
+# Private/local files
+/.private
+
+# Documentation/planning (not for version control)
 Workplan.md
-plan.txt
+AGENTS.md
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Debug and log files
+*.log
+debug.log
+*.orig
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
 

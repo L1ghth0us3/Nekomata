@@ -1,0 +1,530 @@
+{
+  "dungeons": {
+    "Sastasha": {
+      "boss1": "Chopper",
+      "boss2": "Captain Madison",
+      "boss3": "Denn the Orcatoothed"
+    },
+    "The Tam-Tara Deepcroft": {
+      "boss1": "Void Soulcounter",
+      "boss2": "Void Soulcounter",
+      "boss3": "Void Soulcounter",
+      "boss3": "Galvanth the Dominator"
+    },
+    "Copperbell Mines": {
+      "boss1": "Kottos",
+      "boss2": "Ichorous Ire",
+      "boss3": "Gyges the Great"
+    },
+    "Halatali": {
+      "boss1": "Firemane",
+      "boss2": "Thunderclap Guivre",
+      "boss_optional3": "Pit Peiste",
+      "boss4": "Tangata",
+    },
+    "The Thousand Maws of Toto-Rak": {
+      "boss1": "Coeurl O' Nine Tails",
+      "boss2": "Coeurl O' Nine Tails",
+      "boss3": "Graffias"
+    },
+    "Haukke Manor": {
+      "boss1": "Manor Claviger",
+      "boss2": ["Manor Jester", "Manor Steward"],
+      "boss3": "Lady Amandine"
+    },
+    "Brayflox's Longstop": {
+      "boss1": "Great Yellow Pelican",
+      "boss2": "Inferno Drake",
+      "boss3": "Hellbender",
+      "boss_optional4": "Deep Jungle Coeurl",
+      "boss5": "Aiatar"
+    },
+    "The Sunken Temple of Qarn": {
+      "boss1": "Teratotaur",
+      "boss2": "Temple Guardian",
+      "boss3": "Adjudicator"
+    },
+    "Cutter's Cry": {
+      "boss1": "Myrmidon Princess",
+      "boss2": "Giant Tunnel Worm",
+      "boss3": "Chimera"
+    },
+    "The Stone Vigil": {
+      "boss1": "Chudo-Yudo",
+      "boss2": "Koshchei",
+      "boss3": "Isgebind"
+    },
+    "Dzemael Darkhold": {
+      "boss1": "All-seeing Eye",
+      "boss2": "Taulurd",
+      "boss3": "Batraal"
+    },
+    "The Aurum Vale": {
+      "boss1": "Locksmith",
+      "boss2": "Coincounter",
+      "boss3": "Miser's Mistress"
+    },
+    "The Wanderer's Palace": {
+      "boss1": "Keeper of Halidom",
+      "boss2": "Giant Bavarois",
+      "boss3": "Tonberry King"
+    },
+    "Castrum Meridianum": {
+      "boss1": "The Black Eft",
+      "boss2": "Magitek Vanguard F-1",
+      "boss3": "Livia sas Junius"
+    },
+    "The Praetorium": {
+      "boss1": "Mark II Magitek Colossus",
+      "boss2": "Nero tol Scaeva",
+      "boss3": "Gaius van Baelsar"
+    },
+    "Amdapor Keep": {
+      "boss1": ["Lunatic Priest", "Psycheflayer"],
+      "boss2": "Demon Wall",
+      "boss3": "Anantaboga"
+    },
+    "Pharos Sirius": {
+      "boss1": "Symond the Unsinkable",
+      "boss2": "Zu",
+      "boss3": "Tyrant",
+      "boss4": "Siren"
+    },
+    "Copperbell Mines (Hard)": {
+      "boss1": "Hecatoncheir Mastermind",
+      "boss2": ["Gogmagolem", "Biggy"],
+      "boss3": "Ouranos"
+    },
+    "Haukke Manor (Hard)": {
+      "boss1": "Manor Jester",
+      "boss2": "Ash",
+      "boss3": "Halicarnassus"
+    },
+    "The Lost City of Amdapor": {
+      "boss1": "Decaying Gourmand",
+      "boss2": "Arioch",
+      "boss3": "Diabolos"
+    },
+    "Halatali (Hard)": {
+      "boss1": "Pyracmon",
+      "boss2": "Catoblepas",
+      "boss3": [
+        "Silent Moss the Solemn", 
+        "Franz the Fair", 
+        "Langloisiert the Lionheart", 
+        "U'linbho the Sand Devil"
+      ],
+      "boss4": ["Mumuepo the Beholden", "Narasimha"]
+    },
+    "Brayflox's Longstop (Hard)": {
+      "boss1": "Illuminati Commander",
+      "boss2": "Magitek Vangob G-III",
+      "boss3": "Gobmachine G-VI"
+    },
+    "Hullbreaker Isle": {
+      "boss1": "Sasquatch",
+      "boss2": "Sjoorm",
+      "boss3": "Kraken"
+    },
+    "The Tam-Tara Deepcroft (Hard)": {
+      "boss1": "Liavinne",
+      "boss2": "Spare Body",
+      "boss3": "Avere Bravearm"
+    },
+    "The Stone Vigil (Hard)": {
+      "boss1": "Gorynich",
+      "boss2": "Cuca Fera",
+      "boss3": "Giruveganaus"
+    },
+    "Snowcloak": {
+      "boss1": "Wandil",
+      "boss2": "Yeti",
+      "boss3": "Fenrir"
+    },
+    "Sastasha (Hard)": {
+      "boss1": "Karlabos",
+      "boss2": "Captain Madison",
+      "boss3": "Kraken"
+    },
+    "The Sunken Temple of Qarn (Hard)": {
+      "boss1": "Damaged Adjudicator",
+      "boss2": "Sabotender Emperatriz",
+      "boss3": "Viceregent to the Warden"
+    },
+    "The Keeper of the Lake": {
+      "boss1": "Einhander",
+      "boss2": "Magitek Gunship",
+      "boss3": "Midgardsormr"
+    },
+    "The Wanderer's Palace (Hard)": {
+      "boss1": "Frumious Koheel Ja",
+      "boss2": "Slithy Zolool Ja",
+      "boss3": "Manxome Molaa Ja Ja"
+    },
+    "Amdapor Keep (Hard)": {
+      "boss1": "Anchag",
+      "boss2": "Boogyman",
+      "boss3": "Ferdiad"
+    },
+    "The Dusk Vigil": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Sohm Al": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Aery": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Vault": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Great Gubal Library": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Aetherochemical Research Facility": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Neverreap": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Fractal Continuum": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Saint Mocianne's Arboretum": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Pharos Sirius (Hard)": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Antitower": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Lost City of Amdapor (Hard)": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Sohr Khai": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Hullbreaker Isle (Hard)": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Xelphatol": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Great Gubal Library (Hard)": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Xelphatol": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Great Gubal Library (Hard)": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Baelsar's Wall": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Sohm Al (Hard)": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Sirensong Sea": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Shisui of the Violet Tides": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Bardam's Mettle": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Doma Castle": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Castrum Abania": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Ala Mhigo": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Kugane Castle": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Temple of the Fist": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Drowned City of Skalla": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Hell's Lid": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Fractal Continuum (Hard)": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Swallow's Compass": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Burn": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Saint Mocianne's Arboretum (Hard)": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Ghimlyt Dark": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Holminster Switch": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Dohn Mheg": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Qitana Ravel": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Malikah's Well": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Mt. Gulg": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Amaurot": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Twinning": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Akademia Anyder": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Grand Cosmos": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Anamnesis Anyder": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Heroes' Gauntlet": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Matoya's Relict": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Paglth'an": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Tower of Zot": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Tower of Babil": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Vanaspati": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Ktisis Hyperboreia": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Atiascope": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Dead Ends": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Smileton": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Stigma Dreamscape": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Alzadaal's Legacy": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Fell Court of Troia": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Lapis Manalis": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Aetherfont": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Lunar Subterrane": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Ihuykatumu": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Worqor Zormor": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Skydeep Cenote": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Vanguard": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Origenics": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Alexandria": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Tender Valley": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Strayborough Deadwalk": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "Yuweyawata Field Station": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Underkeep": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    },
+    "The Meso Terminal": {
+      "boss1": "not-so scary boss name",
+      "boss2": "joe",
+      "boss3": "peter"
+    }
+  }
+}

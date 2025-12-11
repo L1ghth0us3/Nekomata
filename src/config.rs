@@ -6,6 +6,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+const CONFIG_DIR_ENV: &str = "NEKOMATA_CONFIG_DIR";
+const CONFIG_DIR_NAME: &str = "nekomata";
+const CONFIG_FILE_NAME: &str = "nekomata.config";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppConfig {
     #[serde(default = "default_idle_seconds")]
@@ -14,6 +18,8 @@ pub struct AppConfig {
     pub default_decoration: String,
     #[serde(default = "default_mode")]
     pub default_mode: String,
+    #[serde(default = "default_dungeon_mode_enabled")]
+    pub dungeon_mode_enabled: bool,
 }
 
 impl Default for AppConfig {
@@ -22,6 +28,7 @@ impl Default for AppConfig {
             idle_seconds: default_idle_seconds(),
             default_decoration: default_decoration(),
             default_mode: default_mode(),
+            dungeon_mode_enabled: default_dungeon_mode_enabled(),
         }
     }
 }
@@ -36,6 +43,10 @@ fn default_decoration() -> String {
 
 fn default_mode() -> String {
     "dps".to_string()
+}
+
+fn default_dungeon_mode_enabled() -> bool {
+    true
 }
 
 pub fn load() -> Result<AppConfig> {
@@ -66,18 +77,18 @@ pub fn save(cfg: &AppConfig) -> Result<()> {
 }
 
 pub fn config_path() -> PathBuf {
-    config_dir().join("iinact-tui.config")
+    config_dir().join(CONFIG_FILE_NAME)
 }
 
 pub fn config_dir() -> PathBuf {
-    if let Some(path) = env::var_os("IINACT_TUI_CONFIG_DIR") {
+    if let Some(path) = env::var_os(CONFIG_DIR_ENV) {
         PathBuf::from(path)
     } else if let Some(path) = env::var_os("XDG_CONFIG_HOME") {
-        PathBuf::from(path).join("iinact-tui")
+        PathBuf::from(path).join(CONFIG_DIR_NAME)
     } else if let Some(home) = env::var_os("HOME") {
-        Path::new(&home).join(".config").join("iinact-tui")
+        Path::new(&home).join(".config").join(CONFIG_DIR_NAME)
     } else if let Some(appdata) = env::var_os("APPDATA") {
-        PathBuf::from(appdata).join("iinact-tui")
+        PathBuf::from(appdata).join(CONFIG_DIR_NAME)
     } else {
         PathBuf::from(".")
     }
