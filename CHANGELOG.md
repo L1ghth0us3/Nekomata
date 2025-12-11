@@ -4,18 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is inspired by Keep a Changelog and uses calendar dates (YYYY‑MM‑DD).
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2025-12-11
+
+Highlights
 - Rebranded the project as **Nekomata**, updating crate/binary names, docs, and visuals while preserving compatibility with existing IINACT-powered workflows.
 - Introduced new configuration and history paths (`~/.config/nekomata`) and environment variables (`NEKOMATA_CONFIG_DIR`, `NEKOMATA_DUNGEON_CATALOG`).
 - Removed the pre-release legacy fallback logic for `iinact-tui` paths and environment variables to streamline the rebrand.
+- Added **Dungeon Mode**: toggleable mode that aggregates encounters into single dungeon runs while preserving individual encounter details.
 - Added a heal view and toggle to history window.
 - Added sorting and graph update for heal live view.
+- Major code refactoring with modular architecture for improved maintainability.
+
+Architecture & Code Quality
 - Refactored the model.rs into dedicated submodules (`history_panel`, `settings`, `state`, `types`, `view`)
 - Refactored the UI renderer into dedicated submodules (`header`, `status`, `settings`, `table`) to simplify future tweaks and keep rendering components focused.
 - Split the history subsystem into `types`, `store`, and `recorder` modules with a thin facade so persistence data, sled access, and async recording responsibilities stay isolated.
 - Reworked history persistence to store per-date and per-encounter summaries for fast indexed loading while preserving every CombatData frame.
 - History panel now hydrates data lazily with loading indicators for dates, encounters, and detail views.
-- Added `i` hotkey (idle-only) to toggle the idle overlay so you can peek at the most recent encounter without leaving idle mode.
+- Improved git setup with `.gitattributes` for consistent line endings and binary file handling.
+- Enhanced `.gitignore` with comprehensive Rust and IDE patterns.
+- Added `Cargo.lock` to repository for reproducible builds (binary application).
+
+Controls
+- `i`: when idle mode is active, toggle the idle overlay on/off to peek at the most recent encounter without leaving idle mode.
+- `Shift-D`: when dungeon mode is active, manually cut off a dungeon run and save it.
 
 ## [0.2.0] - 2025-09-21
 

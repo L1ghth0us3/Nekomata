@@ -47,22 +47,16 @@ Notes:
 { "type": "LogLine", "line": "21|2025-01-01T12:34:56.789|..." }
 ```
 
-## Reference Client (Python)
-See `query_iinact.py` for a minimal, dependency-light client that:
-- Connects to the WS
-- Performs a handler call (`getLanguage`)
-- Subscribes to `CombatData` and `LogLine`
-- Pretty-prints an encounter table, sorted by ENCDPS
+## Reference Implementation
+**Nekomata** (this project) serves as a reference implementation of an IINACT client:
+- Connects to the WebSocket endpoint
+- Performs handler calls (`getLanguage`) to verify connectivity
+- Subscribes to `CombatData` and `LogLine` events
+- Maintains live encounter state and renders a kagerou-style table using ratatui
+- Implements encounter history persistence with sled-backed storage
+- Provides a full-featured TUI with settings, history panel, and dungeon mode
 
-### Running
-```bash
-pip install websockets
-python3 query_iinact.py --ws ws://127.0.0.1:10501/ws
-# Exit after the first CombatData:
-python3 query_iinact.py --once
-# Show LogLine summaries too:
-python3 query_iinact.py --show-logline
-```
+See the README.md for build and run instructions.
 
 ## Guidance for Agents (Nekomata TUI target)
 - Use a WS client (e.g., `tokio-tungstenite`) to connect to `ws://127.0.0.1:10501/ws`.
@@ -75,7 +69,7 @@ python3 query_iinact.py --show-logline
 - Track encounter activity timestamps so the UI can surface an idle state when no fights are active for the configured timeout.
 - Surface user-facing settings through a modal pane and persist them to disk so inputs survive restarts.
 
-### Current TUI Behavior (v0.2.0)
+### Current TUI Behavior (v0.3.0)
 - Rendering
   - Table columns: Name, Share%, ENCDPS, Job, Crit%, DH%, Deaths (numeric columns are right‑aligned). On narrow widths, Share% survives longer than ENCDPS/Job.
   - Responsive breakpoints hide columns at narrow widths (down to Name‑only).
@@ -92,7 +86,11 @@ python3 query_iinact.py --show-logline
 - Settings & persistence
   - `s` opens a modal settings pane; `↑/↓` moves the selection, `←/→` adjusts the highlighted value.
   - Idle timeout accepts `0` to disable idle mode; defaults for decoration and opening mode are configured here and persist to disk.
-- Settings persist to `~/.config/nekomata/nekomata.config` (override with `NEKOMATA_CONFIG_DIR`; Windows uses `%APPDATA%\nekomata`).
+  - Settings persist to `~/.config/nekomata/nekomata.config` (override with `NEKOMATA_CONFIG_DIR`; Windows uses `%APPDATA%\nekomata`).
+- Dungeon Mode
+  - Toggleable mode that aggregates encounters into single dungeon runs while preserving individual encounter details.
+  - `Shift-D` manually cuts off a dungeon run and saves it.
+  - Dungeon catalog defines zones and bosses for automatic aggregation.
 - Styling
   - Foreground-only for normal widgets to preserve terminal blur/transparency. Background is used only for the meter fill.
 - Role colors (xterm-256): tank=75, healer=41, dps=124; job name text uses per-job colors.
