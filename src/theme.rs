@@ -38,6 +38,15 @@ pub fn job_color(job: &str) -> Color {
         "PCT" => Color::Rgb(180, 220, 255),
         // Limited
         "BLU" => Color::Rgb(140, 200, 255),
+        // Pre-Jobs
+        "GLD" => Color::Rgb(255, 200, 140),
+        "PGL" => Color::Rgb(140, 160, 255),
+        "MRD" => Color::Rgb(255, 100, 200),
+        "LNC" => Color::Rgb(255, 120, 160),
+        "ARC" => Color::Rgb(180, 80, 180),
+        "CNJ" => Color::Rgb(120, 255, 230),
+        "THM" => Color::Rgb(220, 120, 255),
+        "ROG" => Color::Rgb(120, 200, 255),
         _ => ACCENT,
     }
 }
@@ -57,9 +66,9 @@ pub fn value_style() -> Style {
 pub fn role_bar_color(job: &str) -> Color {
     match job {
         // Tanks
-        "PLD" | "WAR" | "DRK" | "GNB" => Color::Indexed(75),
+        "PLD" | "WAR" | "DRK" | "GNB" | "GLA" | "MRD" => Color::Indexed(75),
         // Healers
-        "WHM" | "SCH" | "AST" | "SGE" => Color::Indexed(41),
+        "WHM" | "SCH" | "AST" | "SGE" | "CNJ" => Color::Indexed(41),
         // Everything else treated as DPS
         _ => Color::Indexed(124),
     }

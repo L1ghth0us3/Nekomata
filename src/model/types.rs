@@ -93,12 +93,19 @@ pub fn known_jobs() -> &'static HashSet<&'static str> {
     static JOBS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         [
             // Tanks
-            "PLD", "WAR", "DRK", "GNB", // Healers
-            "WHM", "SCH", "AST", "SGE", // Melee
-            "MNK", "DRG", "NIN", "SAM", "RPR", "VPR", // Ranged phys
-            "BRD", "MCH", "DNC", // Casters
-            "BLM", "SMN", "RDM", "PCT", // Limited
+            "PLD", "WAR", "DRK", "GNB", 
+            // Healers
+            "WHM", "SCH", "AST", "SGE", 
+            // Melee
+            "MNK", "DRG", "NIN", "SAM", "RPR", "VPR", 
+            // Ranged phys
+            "BRD", "MCH", "DNC", 
+            // Casters
+            "BLM", "SMN", "RDM", "PCT", 
+            // Limited
             "BLU",
+            // Pre-Jobs
+            "GLD", "PGL", "MRD", "LNC", "ARC", "CNJ", "THM", "ROG"
         ]
         .into_iter()
         .collect()
