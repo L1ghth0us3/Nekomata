@@ -16,7 +16,7 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     let dungeon_selected = matches!(snapshot.settings_cursor, SettingsField::DungeonMode);
 
     let mut lines = Vec::new();
-    lines.push(Line::from(vec![Span::styled("Settings", title_style())]));
+    //lines.push(Line::from(vec![Span::styled("Settings", title_style())]));
     lines.push(Line::default());
 
     lines.push(setting_line(
@@ -52,15 +52,49 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     lines.push(Line::default());
 
     lines.push(Line::from(vec![Span::styled(
-        "Use ↑/↓ to select, ←/→ to adjust. Press 's' to close.",
+        "Use ↑/↓ to select, ←/→ to adjust.",
         header_style(),
     )]));
+    lines.push(Line::from(vec![Span::styled(
+        "Press 'q' or 's' to close.",
+        header_style(),
+    )]));
+    lines.push(Line::default());
 
-    let block = Block::default().title("Settings").borders(Borders::ALL);
+    // Calculate content height (lines + block borders)
+    let content_height = lines.len() as u16 + 2; // +2 for top and bottom borders
+    let available_height = area.height;
+    
+    // Center the content vertically
+    let top_padding = if available_height > content_height {
+        (available_height - content_height) / 2
+    } else {
+        0
+    };
+    let bottom_padding = if available_height > content_height {
+        available_height - content_height - top_padding
+    } else {
+        0
+    };
+    
+    let vertical_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(top_padding),
+            Constraint::Length(content_height.min(available_height)),
+            Constraint::Length(bottom_padding),
+        ])
+        .split(area);
+    
+    let content_area = vertical_layout[1];
+
+    let block = Block::default()
+        .title(Line::from(vec![Span::styled("Settings", title_style())]))
+        .borders(Borders::ALL);
     let widget = Paragraph::new(lines)
         .block(block)
-        .alignment(Alignment::Left);
-    f.render_widget(widget, area);
+        .alignment(Alignment::Center);
+    f.render_widget(widget, content_area);
 }
 
 fn setting_line(selected: bool, label: &str, value: String) -> Line<'static> {

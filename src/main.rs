@@ -130,7 +130,9 @@ async fn main() -> Result<()> {
                 Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => {
                         let mut s = state.write().await;
-                        if s.history.visible {
+                        if s.show_settings {
+                            s.show_settings = false;
+                        } else if s.history.visible {
                             s.history.visible = false;
                             s.history.reset();
                         } else {
