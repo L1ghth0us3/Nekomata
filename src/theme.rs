@@ -66,7 +66,7 @@ pub fn value_style() -> Style {
 pub fn role_bar_color(job: &str) -> Color {
     match job {
         // Tanks
-        "PLD" | "WAR" | "DRK" | "GNB" | "GLA" | "MRD" => Color::Indexed(75),
+        "PLD" | "WAR" | "DRK" | "GNB" | "GLD" | "MRD" => Color::Indexed(75),
         // Healers
         "WHM" | "SCH" | "AST" | "SGE" | "CNJ" => Color::Indexed(41),
         // Everything else treated as DPS
