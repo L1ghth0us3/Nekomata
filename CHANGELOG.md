@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is inspired by Keep a Changelog and uses calendar dates (YYYY‑MM‑DD).
 
+## [0.4.0] - 2025-12-27
+
+Highlights
+- Idle mode now works even when disconnected from IINACT, showing "Disconnected (idle)" status after the configured timeout.
+- Added support for pre-job classes (GLD, PGL, MRD, LNC, ARC, CNJ, THM, ROG) with proper color coding and role assignments.
+
+Bug fixes
+- Fixed typo in pre-job handling that prevented Gladiator (GLD) from rendering correctly.
+
+UI improvements
+- Removed redundant settings information from the header for a cleaner display.
+
 ## [0.3.0] - 2025-12-11
 
 Highlights
