@@ -107,7 +107,11 @@ fn status_lines(snapshot: &AppSnapshot) -> Vec<Line<'static>> {
             "Connected"
         }
     } else {
-        "Disconnected"
+        if snapshot.is_idle {
+            "Disconnected (idle)"
+        } else {
+            "Disconnected"
+        }
     };
 
     let encounter_label = snapshot

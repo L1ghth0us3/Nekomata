@@ -81,6 +81,11 @@ async fn main() -> Result<()> {
     {
         let mut s = state.write().await;
         s.apply_settings(AppSettings::from(app_cfg.clone()));
+        // Initialize disconnected_since since the app starts disconnected
+        // This must happen after settings are loaded so idle_duration() works correctly
+        if s.disconnected_since.is_none() {
+            s.disconnected_since = Some(Instant::now());
+        }
     }
 
     // History persistence (sled-backed)

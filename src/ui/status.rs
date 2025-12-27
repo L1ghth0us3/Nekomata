@@ -63,10 +63,17 @@ pub(super) fn draw_error(f: &mut Frame, area: ratatui::layout::Rect, error: &App
 
 fn status_label(snapshot: &AppSnapshot) -> (Cow<'static, str>, Style) {
     if !snapshot.connected {
-        (
-            Cow::Borrowed("Disconnected"),
-            Style::default().fg(crate::theme::STATUS_DISCONNECTED),
-        )
+        if snapshot.is_idle {
+            (
+                Cow::Borrowed("Disconnected (idle)"),
+                Style::default().fg(crate::theme::STATUS_IDLE),
+            )
+        } else {
+            (
+                Cow::Borrowed("Disconnected"),
+                Style::default().fg(crate::theme::STATUS_DISCONNECTED),
+            )
+        }
     } else if snapshot.is_idle {
         (
             Cow::Borrowed("Connected (idle)"),

@@ -35,6 +35,7 @@ pub struct AppState {
     pub last_update: Option<Instant>,
     pub last_active: Option<Instant>,
     pub connected_since: Option<Instant>,
+    pub disconnected_since: Option<Instant>,
     pub encounter: Option<EncounterSummary>,
     pub rows: Vec<CombatantRow>,
     pub decoration: Decoration,
@@ -56,6 +57,7 @@ impl Default for AppState {
             last_update: None,
             last_active: None,
             connected_since: None,
+            disconnected_since: None,
             encounter: None,
             rows: Vec::new(),
             decoration: Decoration::default(),
@@ -81,12 +83,25 @@ impl AppState {
                 self.last_update = Some(now);
                 self.last_active = None;
                 self.connected_since = Some(now);
+                self.disconnected_since = None;
             }
             AppEvent::Disconnected => {
                 self.connected = false;
+                let now = Instant::now();
                 self.last_update = None;
                 self.last_active = None;
+                // Reset disconnected_since if we were previously connected (to restart idle timer)
+                // Otherwise preserve it if already set (preserves initial startup time)
+                let was_connected = self.connected_since.is_some();
                 self.connected_since = None;
+                if was_connected {
+                    // We were connected, so reset the idle timer
+                    self.disconnected_since = Some(now);
+                } else if self.disconnected_since.is_none() {
+                    // We were never connected and don't have a timestamp yet, set it now
+                    self.disconnected_since = Some(now);
+                }
+                // Otherwise, keep the existing disconnected_since (preserves startup time)
             }
             AppEvent::CombatData { encounter, rows } => {
                 let now = Instant::now();
@@ -251,12 +266,20 @@ impl AppState {
 
 impl AppState {
     pub fn is_idle_at(&self, now: Instant) -> bool {
-        if !self.connected {
-            return false;
-        }
         let Some(threshold) = self.settings.idle_duration() else {
             return false;
         };
+        
+        if !self.connected {
+            // When disconnected, check if we've been disconnected long enough
+            if let Some(disconnected) = self.disconnected_since {
+                return now.saturating_duration_since(disconnected) >= threshold;
+            }
+            // If we don't have a disconnected timestamp yet, we're not idle
+            return false;
+        }
+        
+        // When connected, check for active encounters
         if self
             .encounter
             .as_ref()
@@ -265,15 +288,20 @@ impl AppState {
         {
             return false;
         }
+        
+        // Check time since last active encounter
         if let Some(active) = self.last_active {
             if now.saturating_duration_since(active) >= threshold {
                 return true;
             }
             return false;
         }
+        
+        // Check time since connection
         if let Some(since) = self.connected_since {
             return now.saturating_duration_since(since) >= threshold;
         }
+        
         false
     }
 
