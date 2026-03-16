@@ -1,7 +1,7 @@
 # Nekomata
 
 <p align="center">
-  <img src="nekomata_logo_text.png" alt="Nekomata logo" width="200" />
+  <img src="assets/nekomata_logo_text.png" alt="Nekomata logo" width="200" />
 </p>
 
 **Nekomata** is a rust-based, dependency-light DPS meter for FFXIV that connects to the IINACT plugin over OverlayPlugin's WebSocket API and renders a kagerou-style table using ratatui.
