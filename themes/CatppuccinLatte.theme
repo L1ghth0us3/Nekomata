@@ -1,0 +1,39 @@
+[meta]
+name = "Catppuccin Latte"
+
+[palette]
+accent = "#1E66F5"               # Blue
+accent_2 = "#EA76CB"             # Pink
+text = "#4C4F69"                 # Text
+status_idle = "#FE640B"          # Peach
+status_disconnected = "#D20F39"  # Red
+
+[roles]
+tank = "#1E66F5"   # Blue
+healer = "#40A02B" # Green
+dps = "#EA76CB"    # Pink
+
+[jobs]
+PLD = "#1E66F5"
+WAR = "#D20F39"
+DRK = "#8839EF"
+GNB = "#209FB5"
+WHM = "#40A02B"
+SCH = "#209FB5"
+AST = "#EA76CB"
+SGE = "#179299"
+MNK = "#FE640B"
+DRG = "#1E66F5"
+NIN = "#D20F39"
+SAM = "#DF8E1D"
+RPR = "#8839EF"
+VPR = "#EA76CB"
+BRD = "#40A02B"
+MCH = "#179299"
+DNC = "#EA76CB"
+BLM = "#8839EF"
+SMN = "#40A02B"
+RDM = "#D20F39"
+PCT = "#209FB5"
+BLU = "#209FB5"
+

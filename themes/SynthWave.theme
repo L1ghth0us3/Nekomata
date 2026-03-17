@@ -1,0 +1,48 @@
+[meta]
+name = "Synth Wave"
+
+[palette]
+accent = "#C83CFF"
+accent_2 = "#00FFC8"
+text = "#DCD2E6"
+status_idle = "#CD6600"
+status_disconnected = "#DC3C3C"
+
+[roles]
+tank = "#5F87FF"         # xterm 75-ish
+healer = "#00D75F"       # xterm 41-ish
+dps = "#AF0000"          # xterm 124-ish
+
+[jobs]
+PLD = "#B4A0FF"
+WAR = "#FF7878"
+DRK = "#963CC8"
+GNB = "#C878FF"
+WHM = "#C8DCFF"
+SCH = "#78C8FF"
+AST = "#FFB4FF"
+SGE = "#78FFE6"
+MNK = "#FFC88C"
+DRG = "#8C A0FF"
+NIN = "#FF64C8"
+SAM = "#FF78A0"
+RPR = "#B450B4"
+VPR = "#DC78FF"
+BRD = "#FFC8FF"
+MCH = "#A0FFE6"
+DNC = "#FFA0DC"
+BLM = "#7878FF"
+SMN = "#78FFA0"
+RDM = "#FFA0C8"
+PCT = "#B4DCFF"
+BLU = "#8CC8FF"
+GLD = "#FFC88C"
+PGL = "#8CA0FF"
+MRD = "#FF64C8"
+LNC = "#FF78A0"
+ARC = "#B450B4"
+CNJ = "#78FFE6"
+THM = "#DC78FF"
+ROG = "#78C8FF"
+
+

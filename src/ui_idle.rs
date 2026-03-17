@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 use crate::model::{AppSnapshot, IdleScene};
-use crate::theme::{header_style, title_style, value_style, TEXT};
+use crate::theme::{header_style, text_color, title_style, value_style};
 
 /// Default order new idle widgets should rotate through once rotation logic lands.
 #[allow(dead_code)]
@@ -42,7 +42,9 @@ fn render_header(f: &mut Frame, area: Rect, snapshot: &AppSnapshot) {
 
     let description = Line::from(vec![Span::styled(
         snapshot.idle_scene.description(),
-        Style::default().fg(TEXT).add_modifier(Modifier::DIM),
+        Style::default()
+            .fg(text_color())
+            .add_modifier(Modifier::DIM),
     )]);
 
     let block = Block::default().borders(Borders::NONE);
@@ -50,7 +52,9 @@ fn render_header(f: &mut Frame, area: Rect, snapshot: &AppSnapshot) {
     if snapshot.idle_scene == IdleScene::Status {
         lines.push(Line::from(vec![Span::styled(
             "press 'i' to toggle idle window",
-            Style::default().fg(TEXT).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(text_color())
+                .add_modifier(Modifier::DIM),
         )]));
     }
 
@@ -139,7 +143,9 @@ fn placeholder(title: &str, caption: &str) -> Vec<Line<'static>> {
         Line::from(vec![Span::styled(caption.to_string(), header_style())]),
         Line::from(vec![Span::styled(
             "Rotate scenes via DEFAULT_ROTATION or update AppState::idle_scene.",
-            Style::default().fg(TEXT).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(text_color())
+                .add_modifier(Modifier::DIM),
         )]),
     ]
 }

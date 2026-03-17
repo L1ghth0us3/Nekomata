@@ -4,7 +4,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 use crate::model::{AppSnapshot, SettingsField};
-use crate::theme::{header_style, title_style, value_style};
+use crate::theme::{header_style, theme_registry, title_style, value_style};
 
 pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     let area = centered_rect(60, 50, f.size());
@@ -14,6 +14,8 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     let decor_selected = matches!(snapshot.settings_cursor, SettingsField::DefaultDecoration);
     let mode_selected = matches!(snapshot.settings_cursor, SettingsField::DefaultMode);
     let dungeon_selected = matches!(snapshot.settings_cursor, SettingsField::DungeonMode);
+    let theme_selected = matches!(snapshot.settings_cursor, SettingsField::Theme);
+    let role_theme_selected = matches!(snapshot.settings_cursor, SettingsField::RoleTheme);
 
     let mut lines = Vec::new();
     //lines.push(Line::from(vec![Span::styled("Settings", title_style())]));
@@ -44,6 +46,20 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
         dungeon_selected,
         "Dungeon Mode",
         if snapshot.settings.dungeon_mode_enabled {
+            "ON".to_string()
+        } else {
+            "OFF".to_string()
+        },
+    ));
+    lines.push(setting_line(
+        theme_selected,
+        "Theme",
+        current_theme_name(&snapshot.settings.theme_id),
+    ));
+    lines.push(setting_line(
+        role_theme_selected,
+        "Change role specific colors",
+        if snapshot.settings.role_theme_enabled {
             "ON".to_string()
         } else {
             "OFF".to_string()
@@ -110,6 +126,25 @@ fn setting_line(selected: bool, label: &str, value: String) -> Line<'static> {
         Span::raw(" "),
         Span::styled(value, value_style()),
     ])
+}
+
+fn current_theme_name(theme_id: &str) -> String {
+    let registry = theme_registry();
+    if let Some(desc) = registry
+        .descriptors()
+        .into_iter()
+        .find(|d| d.id.eq_ignore_ascii_case(theme_id))
+    {
+        desc.name
+    } else {
+        let default_id = registry.default_id();
+        registry
+            .descriptors()
+            .into_iter()
+            .find(|d| d.id == default_id)
+            .map(|d| d.name)
+            .unwrap_or_else(|| "Synth Wave".to_string())
+    }
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {

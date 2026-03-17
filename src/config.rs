@@ -20,6 +20,10 @@ pub struct AppConfig {
     pub default_mode: String,
     #[serde(default = "default_dungeon_mode_enabled")]
     pub dungeon_mode_enabled: bool,
+    #[serde(default = "default_theme_id")]
+    pub theme_id: String,
+    #[serde(default = "default_role_theme_enabled")]
+    pub role_theme_enabled: bool,
 }
 
 impl Default for AppConfig {
@@ -29,6 +33,8 @@ impl Default for AppConfig {
             default_decoration: default_decoration(),
             default_mode: default_mode(),
             dungeon_mode_enabled: default_dungeon_mode_enabled(),
+            theme_id: default_theme_id(),
+            role_theme_enabled: default_role_theme_enabled(),
         }
     }
 }
@@ -46,6 +52,14 @@ fn default_mode() -> String {
 }
 
 fn default_dungeon_mode_enabled() -> bool {
+    true
+}
+
+fn default_theme_id() -> String {
+    String::new()
+}
+
+fn default_role_theme_enabled() -> bool {
     true
 }
 

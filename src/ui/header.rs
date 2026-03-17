@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::model::{AppSnapshot, ViewMode};
-use crate::theme::{header_style, value_style, TEXT};
+use crate::theme::{header_style, text_color, value_style};
 
 pub(super) fn draw(f: &mut Frame, area: Rect, snapshot: &AppSnapshot) {
     let block = Block::default().borders(Borders::NONE);
@@ -27,13 +27,13 @@ pub(super) fn draw(f: &mut Frame, area: Rect, snapshot: &AppSnapshot) {
 
     let top_widget = Paragraph::new(bottom_line)
         .block(block.clone())
-        .style(Style::default().fg(TEXT))
+        .style(Style::default().fg(text_color()))
         .alignment(Alignment::Left);
     f.render_widget(top_widget, top_area);
 
     let bottom_widget = Paragraph::new(top_line)
         .block(block)
-        .style(Style::default().fg(TEXT))
+        .style(Style::default().fg(text_color()))
         .alignment(Alignment::Left);
     f.render_widget(bottom_widget, bottom_area);
 }

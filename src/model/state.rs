@@ -4,6 +4,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::AppError;
+use crate::theme;
 
 use super::{
     AppEvent, AppSettings, CombatantRow, Decoration, DungeonPanelLevel, EncounterSummary,
@@ -307,6 +308,10 @@ impl AppState {
 
     pub fn apply_settings(&mut self, settings: AppSettings) {
         self.settings = settings;
+        // Apply theme selection and role theme toggle.
+        let effective_id = theme::apply_theme_by_id(&self.settings.theme_id);
+        self.settings.theme_id = effective_id;
+        theme::set_role_theme_enabled(self.settings.role_theme_enabled);
         self.sync_current_with_defaults();
     }
 
@@ -348,7 +353,48 @@ impl AppState {
                 } else {
                     false
                 }
-            } // Placeholder for future settings fields
+            }
+            SettingsField::Theme => {
+                // Cycle through themes from the registry.
+                let registry = theme::theme_registry();
+                let descriptors = registry.descriptors();
+                if descriptors.is_empty() {
+                    return false;
+                }
+                let len = descriptors.len();
+                let current_id = &self.settings.theme_id;
+                let current_index = descriptors
+                    .iter()
+                    .position(|d| d.id.eq_ignore_ascii_case(current_id))
+                    .unwrap_or(0);
+                let next_index = if forward {
+                    (current_index + 1) % len
+                } else if current_index == 0 {
+                    len.saturating_sub(1)
+                } else {
+                    current_index.saturating_sub(1)
+                };
+                drop(registry);
+                let next_id = descriptors[next_index].id.clone();
+                if next_id.eq_ignore_ascii_case(current_id) {
+                    false
+                } else {
+                    let effective_id = theme::apply_theme_by_id(&next_id);
+                    self.settings.theme_id = effective_id;
+                    true
+                }
+            }
+            SettingsField::RoleTheme => {
+                let before = self.settings.role_theme_enabled;
+                let after = !before;
+                if after != before {
+                    self.settings.role_theme_enabled = after;
+                    theme::set_role_theme_enabled(after);
+                    true
+                } else {
+                    false
+                }
+            }
         }
     }
 

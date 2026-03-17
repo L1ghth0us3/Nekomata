@@ -13,6 +13,8 @@ pub enum SettingsField {
     DefaultDecoration,
     DefaultMode,
     DungeonMode,
+    Theme,
+    RoleTheme,
 }
 
 impl SettingsField {
@@ -21,16 +23,20 @@ impl SettingsField {
             SettingsField::IdleTimeout => SettingsField::DefaultDecoration,
             SettingsField::DefaultDecoration => SettingsField::DefaultMode,
             SettingsField::DefaultMode => SettingsField::DungeonMode,
-            SettingsField::DungeonMode => SettingsField::IdleTimeout,
+            SettingsField::DungeonMode => SettingsField::Theme,
+            SettingsField::Theme => SettingsField::RoleTheme,
+            SettingsField::RoleTheme => SettingsField::IdleTimeout,
         }
     }
 
     pub fn prev(self) -> Self {
         match self {
-            SettingsField::IdleTimeout => SettingsField::DungeonMode,
+            SettingsField::IdleTimeout => SettingsField::RoleTheme,
             SettingsField::DefaultDecoration => SettingsField::IdleTimeout,
             SettingsField::DefaultMode => SettingsField::DefaultDecoration,
             SettingsField::DungeonMode => SettingsField::DefaultMode,
+            SettingsField::Theme => SettingsField::DungeonMode,
+            SettingsField::RoleTheme => SettingsField::Theme,
         }
     }
 }
@@ -41,6 +47,8 @@ pub struct AppSettings {
     pub default_decoration: Decoration,
     pub default_mode: ViewMode,
     pub dungeon_mode_enabled: bool,
+    pub theme_id: String,
+    pub role_theme_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -50,6 +58,8 @@ impl Default for AppSettings {
             default_decoration: Decoration::Underline,
             default_mode: ViewMode::Dps,
             dungeon_mode_enabled: true,
+            theme_id: String::new(),
+            role_theme_enabled: true,
         }
     }
 }
@@ -71,6 +81,8 @@ impl From<AppConfig> for AppSettings {
             default_decoration: Decoration::from_config_key(&value.default_decoration),
             default_mode: ViewMode::from_config_key(&value.default_mode),
             dungeon_mode_enabled: value.dungeon_mode_enabled,
+            theme_id: value.theme_id,
+            role_theme_enabled: value.role_theme_enabled,
         }
     }
 }
@@ -82,6 +94,8 @@ impl From<AppSettings> for AppConfig {
             default_decoration: value.default_decoration.config_key().to_string(),
             default_mode: value.default_mode.config_key().to_string(),
             dungeon_mode_enabled: value.dungeon_mode_enabled,
+            theme_id: value.theme_id,
+            role_theme_enabled: value.role_theme_enabled,
         }
     }
 }

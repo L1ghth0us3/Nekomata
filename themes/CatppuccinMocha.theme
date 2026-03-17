@@ -1,0 +1,39 @@
+[meta]
+name = "Catppuccin Mocha"
+
+[palette]
+accent = "#89B4FA"               # Blue
+accent_2 = "#F5C2E7"             # Pink
+text = "#CDD6F4"                 # Text
+status_idle = "#FAB387"          # Peach
+status_disconnected = "#F38BA8"  # Red
+
+[roles]
+tank = "#89B4FA"   # Blue
+healer = "#A6E3A1" # Green
+dps = "#F5C2E7"    # Pink
+
+[jobs]
+PLD = "#89B4FA"
+WAR = "#F38BA8"
+DRK = "#CBA6F7"
+GNB = "#89DCEB"
+WHM = "#A6E3A1"
+SCH = "#89DCEB"
+AST = "#F5C2E7"
+SGE = "#94E2D5"
+MNK = "#FAB387"
+DRG = "#89B4FA"
+NIN = "#F38BA8"
+SAM = "#F9E2AF"
+RPR = "#CBA6F7"
+VPR = "#F2CDCD"
+BRD = "#A6E3A1"
+MCH = "#94E2D5"
+DNC = "#F5C2E7"
+BLM = "#CBA6F7"
+SMN = "#A6E3A1"
+RDM = "#F38BA8"
+PCT = "#89DCEB"
+BLU = "#89DCEB"
+

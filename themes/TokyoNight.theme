@@ -1,0 +1,39 @@
+[meta]
+name = "Tokyo Night"
+
+[palette]
+accent = "#7AA2F7"               # Blue
+accent_2 = "#BB9AF7"             # Purple
+text = "#C0CAF5"                 # Foreground
+status_idle = "#E0AF68"          # Orange
+status_disconnected = "#F7768E"  # Red
+
+[roles]
+tank = "#7AA2F7"   # Blue
+healer = "#9ECE6A" # Green
+dps = "#F7768E"    # Red
+
+[jobs]
+PLD = "#7AA2F7"
+WAR = "#F7768E"
+DRK = "#BB9AF7"
+GNB = "#7DCFFF"
+WHM = "#9ECE6A"
+SCH = "#7DCFFF"
+AST = "#BB9AF7"
+SGE = "#7DCFFF"
+MNK = "#E0AF68"
+DRG = "#7AA2F7"
+NIN = "#F7768E"
+SAM = "#E0AF68"
+RPR = "#BB9AF7"
+VPR = "#F7768E"
+BRD = "#9ECE6A"
+MCH = "#7DCFFF"
+DNC = "#BB9AF7"
+BLM = "#7AA2F7"
+SMN = "#9ECE6A"
+RDM = "#F7768E"
+PCT = "#7DCFFF"
+BLU = "#7DCFFF"
+

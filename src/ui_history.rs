@@ -10,7 +10,7 @@ use ratatui::Frame;
 use crate::model::{
     AppSnapshot, CombatantRow, DungeonPanelLevel, HistoryPanelLevel, HistoryView, ViewMode,
 };
-use crate::theme::{header_style, title_style, value_style, TEXT};
+use crate::theme::{accent_color, header_style, text_color, title_style, value_style};
 use crate::ui::{draw_table_with_context, TableRenderContext};
 
 pub fn draw_history(f: &mut Frame, s: &AppSnapshot) {
@@ -73,10 +73,13 @@ fn draw_header(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     let title_line = Line::from(vec![Span::styled(
         "History",
         Style::default()
-            .fg(Color::Cyan)
+            .fg(accent_color())
             .add_modifier(Modifier::BOLD),
     )]);
-    let subtitle_line = Line::from(vec![Span::styled(subtitle, Style::default().fg(TEXT))]);
+    let subtitle_line = Line::from(vec![Span::styled(
+        subtitle,
+        Style::default().fg(text_color()),
+    )]);
 
     let block = Paragraph::new(vec![title_line, tabs_line, subtitle_line])
         .alignment(ratatui::layout::Alignment::Left)
@@ -177,7 +180,7 @@ fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         .highlight_style(
             Style::default()
                 .fg(Color::Black)
-                .bg(Color::Cyan)
+                .bg(accent_color())
                 .add_modifier(Modifier::BOLD),
         );
 
@@ -232,7 +235,7 @@ fn draw_encounters(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         .highlight_style(
             Style::default()
                 .fg(Color::Black)
-                .bg(Color::Cyan)
+                .bg(accent_color())
                 .add_modifier(Modifier::BOLD),
         );
 
@@ -385,7 +388,7 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 title_style(),
             ),
             Span::raw(" "),
-            Span::styled("(m toggles)", Style::default().fg(TEXT)),
+            Span::styled("(m toggles)", Style::default().fg(text_color())),
         ]);
         let block = Block::default().borders(Borders::ALL).title(table_title);
         let table_area = layout[1];
@@ -432,18 +435,21 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         Line::from(vec![
             Span::styled("Current: ", header_style()),
             Span::styled(detail_mode.label(), value_style()),
-            Span::styled(" · press m to toggle", Style::default().fg(TEXT)),
+            Span::styled(
+                " · press m to toggle",
+                Style::default().fg(text_color()),
+            ),
         ]),
         Line::from(vec![
             Span::styled("Sorting: ", header_style()),
             Span::styled(metric_label, value_style()),
-            Span::styled(" · encounter ", Style::default().fg(TEXT)),
+            Span::styled(" · encounter ", Style::default().fg(text_color())),
             Span::styled(metric_label, value_style()),
-            Span::styled(": ", Style::default().fg(TEXT)),
+            Span::styled(": ", Style::default().fg(text_color())),
             Span::styled(metric_value, value_style()),
-            Span::styled(" · ", Style::default().fg(TEXT)),
+            Span::styled(" · ", Style::default().fg(text_color())),
             Span::styled(total_label, header_style()),
-            Span::styled(": ", Style::default().fg(TEXT)),
+            Span::styled(": ", Style::default().fg(text_color())),
             Span::styled(total_value, value_style()),
         ]),
     ];
@@ -486,7 +492,7 @@ fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         .highlight_style(
             Style::default()
                 .fg(Color::Black)
-                .bg(Color::Cyan)
+                .bg(accent_color())
                 .add_modifier(Modifier::BOLD),
         );
 
@@ -551,7 +557,7 @@ fn draw_dungeon_runs(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         .highlight_style(
             Style::default()
                 .fg(Color::Black)
-                .bg(Color::Cyan)
+                .bg(accent_color())
                 .add_modifier(Modifier::BOLD),
         );
 
@@ -649,9 +655,7 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     if record.incomplete {
         summary_lines.push(Line::from(vec![Span::styled(
             "Status: Incomplete",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
+            title_style().add_modifier(Modifier::BOLD),
         )]));
     }
 
@@ -899,7 +903,10 @@ fn draw_dungeon_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 title_style(),
             ),
             Span::raw(" "),
-            Span::styled("(m toggles)", Style::default().fg(TEXT)),
+            Span::styled(
+                "(m toggles)",
+                Style::default().fg(text_color()),
+            ),
         ]);
         let block = Block::default().borders(Borders::ALL).title(table_title);
         let table_area = layout[1];
@@ -946,18 +953,24 @@ fn draw_dungeon_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         Line::from(vec![
             Span::styled("Current: ", header_style()),
             Span::styled(detail_mode.label(), value_style()),
-            Span::styled(" · press m to toggle", Style::default().fg(TEXT)),
+            Span::styled(
+                " · press m to toggle",
+                Style::default().fg(text_color()),
+            ),
         ]),
         Line::from(vec![
             Span::styled("Sorting: ", header_style()),
             Span::styled(metric_label, value_style()),
-            Span::styled(" · encounter ", Style::default().fg(TEXT)),
+            Span::styled(
+                " · encounter ",
+                Style::default().fg(text_color()),
+            ),
             Span::styled(metric_label, value_style()),
-            Span::styled(": ", Style::default().fg(TEXT)),
+            Span::styled(": ", Style::default().fg(text_color())),
             Span::styled(metric_value, value_style()),
-            Span::styled(" · ", Style::default().fg(TEXT)),
+            Span::styled(" · ", Style::default().fg(text_color())),
             Span::styled(total_label, header_style()),
-            Span::styled(": ", Style::default().fg(TEXT)),
+            Span::styled(": ", Style::default().fg(text_color())),
             Span::styled(total_value, value_style()),
         ]),
     ];

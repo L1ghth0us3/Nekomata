@@ -1,0 +1,39 @@
+[meta]
+name = "Gruvbox Retro"
+
+[palette]
+accent = "#83A598"               # Aqua
+accent_2 = "#FABD2F"             # Yellow
+text = "#EBDBB2"                 # Light fg
+status_idle = "#FE8019"          # Orange
+status_disconnected = "#FB4934"  # Red
+
+[roles]
+tank = "#458588"   # Blue
+healer = "#98971A" # Green
+dps = "#CC241D"    # Red
+
+[jobs]
+PLD = "#458588"
+WAR = "#CC241D"
+DRK = "#B16286"
+GNB = "#83A598"
+WHM = "#98971A"
+SCH = "#83A598"
+AST = "#D79921"
+SGE = "#8EC07C"
+MNK = "#FE8019"
+DRG = "#458588"
+NIN = "#CC241D"
+SAM = "#D79921"
+RPR = "#B16286"
+VPR = "#D3869B"
+BRD = "#98971A"
+MCH = "#83A598"
+DNC = "#D3869B"
+BLM = "#B16286"
+SMN = "#98971A"
+RDM = "#CC241D"
+PCT = "#83A598"
+BLU = "#83A598"
+
