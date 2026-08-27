@@ -41,7 +41,12 @@ pub fn spawn_load<T, F>(
     });
 }
 
-pub fn spawn_initial_history_loads(store: Arc<HistoryStore>, tx: UnboundedSender<AppEvent>) {
+pub fn spawn_initial_history_loads(
+    panel: &mut crate::model::HistoryPanel,
+    store: Arc<HistoryStore>,
+    tx: UnboundedSender<AppEvent>,
+) {
+    panel.begin_load();
     spawn_load(
         store.clone(),
         tx.clone(),
@@ -49,6 +54,7 @@ pub fn spawn_initial_history_loads(store: Arc<HistoryStore>, tx: UnboundedSender
         |days| AppEvent::HistoryDatesLoaded { days },
         |message| AppEvent::HistoryError { message },
     );
+    panel.begin_load();
     spawn_load(
         store,
         tx,
@@ -200,6 +206,7 @@ pub fn determine_history_task(state: &mut AppState) -> Option<HistoryTask> {
                                 .is_none();
                             if needs_load {
                                 task = Some(HistoryTask::LoadDungeonEncounter { key: key.clone() });
+                                blocking = true;
                             }
                         }
                     }

@@ -462,8 +462,6 @@ impl AppState {
             false
         } else {
             self.history.visible = true;
-            self.history.begin_load();
-            self.history.begin_load();
             self.history.level = HistoryPanelLevel::Dates;
             self.history.dungeon_level = DungeonPanelLevel::Dates;
             self.history.selected_day = 0;
@@ -479,10 +477,6 @@ impl AppState {
 
     pub fn history_begin_load(&mut self) {
         self.history.begin_load();
-    }
-
-    pub fn history_set_loading(&mut self) {
-        self.history_begin_load();
     }
 
     pub fn history_move_selection(&mut self, delta: i32) {

@@ -143,15 +143,15 @@ async fn main() -> Result<()> {
                     KeyCode::Char('h') => {
                         let should_load = {
                             let mut s = state.write().await;
-                            if s.toggle_history() {
-                                s.history_set_loading();
-                                true
-                            } else {
-                                false
-                            }
+                            s.toggle_history()
                         };
                         if should_load {
-                            spawn_initial_history_loads(history_store.clone(), event_tx.clone());
+                            let mut s = state.write().await;
+                            spawn_initial_history_loads(
+                                &mut s.history,
+                                history_store.clone(),
+                                event_tx.clone(),
+                            );
                         }
                     }
                     KeyCode::Char('i') => {

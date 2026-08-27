@@ -384,3 +384,25 @@ impl HistoryPanel {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn begin_and_finish_load_balance_clears_loading_flag() {
+        let mut panel = HistoryPanel::default();
+        panel.begin_load();
+        panel.begin_load();
+        assert!(panel.loading);
+        assert_eq!(panel.pending_loads, 2);
+
+        panel.finish_load();
+        assert!(panel.loading);
+        assert_eq!(panel.pending_loads, 1);
+
+        panel.finish_load();
+        assert!(!panel.loading);
+        assert_eq!(panel.pending_loads, 0);
+    }
+}
