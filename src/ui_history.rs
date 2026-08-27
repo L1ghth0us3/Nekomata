@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use chrono::{Local, TimeZone};
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -7,12 +5,12 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph};
 use ratatui::Frame;
 
+use crate::history::util::{format_duration_label, format_number};
 use crate::model::{
-    AppSnapshot, CombatantRow, DungeonPanelLevel, HistoryPanelLevel, HistoryView,
-    LimitBreakSummary, LimitBreakMode, ViewMode,
+    AppSnapshot, DungeonPanelLevel, HistoryPanelLevel, HistoryView, ViewMode,
 };
 use crate::theme::{accent_color, header_style, text_color, title_style, value_style};
-use crate::ui::{draw_table_with_context, TableRenderContext, LB_PANEL_HEIGHT};
+use crate::ui::{draw_encounter_record, EncounterDetailParams};
 
 pub fn draw_history(f: &mut Frame, s: &AppSnapshot) {
     let area = f.size();
@@ -275,269 +273,20 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         return;
     };
 
-    let basic_metrics = [
-        (
-            "Encounter",
-            if record.encounter.title.is_empty() {
-                encounter.display_title.clone()
-            } else {
-                record.encounter.title.clone()
-            },
-        ),
-        (
-            "Zone",
-            if record.encounter.zone.is_empty() {
-                "Unknown".to_string()
-            } else {
-                record.encounter.zone.clone()
-            },
-        ),
-        ("Duration", record.encounter.duration.clone()),
-        ("ENCDPS", record.encounter.encdps.clone()),
-        ("Damage", record.encounter.damage.clone()),
-    ];
-
-    let technical_metrics = [
-        ("Snapshots", record.snapshots.to_string()),
-        ("Frames", record.frames.len().to_string()),
-        ("Last seen", encounter.timestamp_label.clone()),
-    ];
-
-    let summary_lines: Vec<Line> = basic_metrics
-        .iter()
-        .map(|(label, value)| {
-            Line::from(vec![
-                Span::styled(format!("{label}: "), header_style()),
-                Span::styled(value.clone(), value_style()),
-            ])
-        })
-        .collect();
-
-    let technical_lines: Vec<Line> = technical_metrics
-        .iter()
-        .map(|(label, value)| {
-            Line::from(vec![
-                Span::styled(format!("{label}: "), header_style()),
-                Span::styled(value.clone(), value_style()),
-            ])
-        })
-        .collect();
-
-    let max_summary_rows = summary_lines.len().max(technical_lines.len());
-    let mut summary_height = max_summary_rows.saturating_add(2) as u16;
-    let max_height = area.height.max(1u16);
-    if summary_height > max_height {
-        summary_height = max_height;
-    }
-    let min_required = 3u16.min(max_height);
-    if summary_height < min_required {
-        summary_height = min_required;
-    }
-
-    let detail_mode = s.history.detail_mode;
-    let mut sorted_rows = record.rows.clone();
-    let show_panel = s.settings.limit_break_mode == LimitBreakMode::Panel;
-    let show_table_row = s.settings.limit_break_mode == LimitBreakMode::TableRow;
-
-    if show_table_row && detail_mode == ViewMode::Dps {
-        if let Some(lb) = record.lb_summary.as_ref() {
-            let total_damage = record
-                .encounter
-                .damage
-                .replace(',', "")
-                .parse::<f64>()
-                .unwrap_or(0.0);
-            let damage = lb.damage as f64;
-            let share = if total_damage > 0.0 {
-                (damage / total_damage).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-
-            let format_number = |v: f64| {
-                if v.abs() >= 1000.0 {
-                    format!("{:.0}", v)
-                } else {
-                    format!("{:.1}", v)
-                }
-            };
-
-            sorted_rows.push(CombatantRow {
-                name: "Limit Break".to_string(),
-                job: "LB".to_string(),
-                encdps: damage,
-                encdps_str: format_number(damage),
-                damage,
-                damage_str: format_number(damage),
-                share,
-                share_str: format!("{:.1}%", share * 100.0),
-                enchps: 0.0,
-                enchps_str: "0".to_string(),
-                healed: 0.0,
-                healed_str: "0".to_string(),
-                heal_share: 0.0,
-                heal_share_str: "0.0%".to_string(),
-                overheal_pct: "0".to_string(),
-                crit: "0".to_string(),
-                dh: "0".to_string(),
-                deaths: "0".to_string(),
-            });
-        }
-    }
-
-    sort_rows_for_mode(&mut sorted_rows, detail_mode);
-
-    let constraints = if show_panel {
-        vec![
-            Constraint::Length(summary_height),
-            Constraint::Min(6),
-            Constraint::Length(4),
-            Constraint::Length(LB_PANEL_HEIGHT),
-            Constraint::Length(1),
-        ]
-    } else {
-        vec![
-            Constraint::Length(summary_height),
-            Constraint::Min(6),
-            Constraint::Length(4),
-            Constraint::Length(1),
-        ]
-    };
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(constraints)
-        .split(area);
-
-    let summary_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
-        .split(layout[0]);
-
-    let summary = Paragraph::new(summary_lines)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(Line::from(vec![Span::styled(
-                    format!("Details · {}", encounter.display_title),
-                    title_style(),
-                )])),
-        )
-        .alignment(Alignment::Left);
-    f.render_widget(summary, summary_chunks[0]);
-
-    let technical = Paragraph::new(technical_lines)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(Line::from(vec![Span::styled(
-                    "Technical Details".to_string(),
-                    title_style(),
-                )])),
-        )
-        .alignment(Alignment::Left);
-    f.render_widget(technical, summary_chunks[1]);
-
-    if sorted_rows.is_empty() {
-        let block = Paragraph::new("No combatants recorded.")
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL));
-        f.render_widget(block, layout[1]);
-    } else {
-        let table_title = Line::from(vec![
-            Span::styled(
-                format!("Combatants · {}", detail_mode.label()),
-                title_style(),
-            ),
-            Span::raw(" "),
-            Span::styled("(m toggles)", Style::default().fg(text_color())),
-        ]);
-        let block = Block::default().borders(Borders::ALL).title(table_title);
-        let table_area = layout[1];
-        let inner = block.inner(table_area);
-        f.render_widget(block, table_area);
-
-        let ctx = TableRenderContext {
-            rows: &sorted_rows,
-            mode: detail_mode,
+    draw_encounter_record(
+        f,
+        area,
+        EncounterDetailParams {
+            record,
+            title: encounter.display_title.clone(),
+            zone_fallback: "Unknown".to_string(),
+            last_seen_label: encounter.timestamp_label.clone(),
+            detail_mode: s.history.detail_mode,
             decoration: s.decoration,
-        };
-        draw_table_with_context(f, inner, &ctx);
-    }
-
-    let metric_label = match detail_mode {
-        ViewMode::Dps => "ENCDPS",
-        ViewMode::Heal => "ENCHPS",
-    };
-    let metric_value = match detail_mode {
-        ViewMode::Dps => &record.encounter.encdps,
-        ViewMode::Heal => &record.encounter.enchps,
-    };
-    let total_label = match detail_mode {
-        ViewMode::Dps => "Total Damage",
-        ViewMode::Heal => "Total Healed",
-    };
-    let total_value = match detail_mode {
-        ViewMode::Dps => &record.encounter.damage,
-        ViewMode::Heal => &record.encounter.healed,
-    };
-
-    let metric_value = if metric_value.is_empty() {
-        "—".to_string()
-    } else {
-        metric_value.clone()
-    };
-    let total_value = if total_value.is_empty() {
-        "—".to_string()
-    } else {
-        total_value.clone()
-    };
-
-    let mode_lines = vec![
-        Line::from(vec![
-            Span::styled("Current: ", header_style()),
-            Span::styled(detail_mode.label(), value_style()),
-            Span::styled(
-                " · press m to toggle",
-                Style::default().fg(text_color()),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("Sorting: ", header_style()),
-            Span::styled(metric_label, value_style()),
-            Span::styled(" · encounter ", Style::default().fg(text_color())),
-            Span::styled(metric_label, value_style()),
-            Span::styled(": ", Style::default().fg(text_color())),
-            Span::styled(metric_value, value_style()),
-            Span::styled(" · ", Style::default().fg(text_color())),
-            Span::styled(total_label, header_style()),
-            Span::styled(": ", Style::default().fg(text_color())),
-            Span::styled(total_value, value_style()),
-        ]),
-    ];
-
-    let mode_paragraph = Paragraph::new(mode_lines).alignment(Alignment::Left).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(Line::from(vec![Span::styled("View Mode", title_style())])),
+            limit_break_mode: s.settings.limit_break_mode,
+            footer_hint: "← back · ↑/↓ switch encounter · m toggles DPS/Heal · Enter re-open",
+        },
     );
-    f.render_widget(mode_paragraph, layout[2]);
-
-    let hint_idx = if show_panel {
-        let placeholder = LimitBreakSummary {
-            user: "—".to_string(),
-            damage: 0,
-        };
-        let lb_ref = record.lb_summary.as_ref().unwrap_or(&placeholder);
-        draw_lb_box(f, layout[3], &lb_ref.user, lb_ref.damage);
-        4
-    } else {
-        3
-    };
-
-    let hint = Paragraph::new("← back · ↑/↓ switch encounter · m toggles DPS/Heal · Enter re-open")
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::NONE));
-    f.render_widget(hint, layout[hint_idx]);
 }
 
 fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
@@ -699,7 +448,7 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     summary_lines.push(Line::from(vec![
         Span::styled("Duration: ", header_style()),
         Span::styled(
-            format_duration_short(record.total_duration_secs),
+            format_duration_label(record.total_duration_secs),
             value_style(),
         ),
     ]));
@@ -859,319 +608,20 @@ fn draw_dungeon_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         })
         .unwrap_or_else(|| "Encounter".to_string());
 
-    let detail_mode = s.history.detail_mode;
-    let mut sorted_rows = encounter_record.rows.clone();
-
-    let show_panel = s.settings.limit_break_mode == LimitBreakMode::Panel;
-    let show_table_row = s.settings.limit_break_mode == LimitBreakMode::TableRow;
-
-    if show_table_row && detail_mode == ViewMode::Dps {
-        if let Some(lb) = encounter_record.lb_summary.as_ref() {
-            let total_damage = encounter_record
-                .encounter
-                .damage
-                .replace(',', "")
-                .parse::<f64>()
-                .unwrap_or(0.0);
-            let damage = lb.damage as f64;
-            let share = if total_damage > 0.0 {
-                (damage / total_damage).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-
-            let format_number = |v: f64| {
-                if v.abs() >= 1000.0 {
-                    format!("{:.0}", v)
-                } else {
-                    format!("{:.1}", v)
-                }
-            };
-
-            sorted_rows.push(CombatantRow {
-                name: "Limit Break".to_string(),
-                job: "LB".to_string(),
-                encdps: damage,
-                encdps_str: format_number(damage),
-                damage,
-                damage_str: format_number(damage),
-                share,
-                share_str: format!("{:.1}%", share * 100.0),
-                enchps: 0.0,
-                enchps_str: "0".to_string(),
-                healed: 0.0,
-                healed_str: "0".to_string(),
-                heal_share: 0.0,
-                heal_share_str: "0.0%".to_string(),
-                overheal_pct: "0".to_string(),
-                crit: "0".to_string(),
-                dh: "0".to_string(),
-                deaths: "0".to_string(),
-            });
-        }
-    }
-
-    sort_rows_for_mode(&mut sorted_rows, detail_mode);
-
-    let basic_metrics = [
-        (
-            "Encounter",
-            if encounter_record.encounter.title.is_empty() {
-                title.clone()
-            } else {
-                encounter_record.encounter.title.clone()
-            },
-        ),
-        (
-            "Zone",
-            if encounter_record.encounter.zone.is_empty() {
-                run.zone.clone()
-            } else {
-                encounter_record.encounter.zone.clone()
-            },
-        ),
-        ("Duration", encounter_record.encounter.duration.clone()),
-        ("ENCDPS", encounter_record.encounter.encdps.clone()),
-        ("Damage", encounter_record.encounter.damage.clone()),
-    ];
-
-    let technical_metrics = [
-        ("Snapshots", encounter_record.snapshots.to_string()),
-        ("Frames", encounter_record.frames.len().to_string()),
-        (
-            "Last seen",
-            format_timestamp_label(encounter_record.last_seen_ms),
-        ),
-    ];
-
-    let summary_lines: Vec<Line> = basic_metrics
-        .iter()
-        .map(|(label, value)| {
-            Line::from(vec![
-                Span::styled(format!("{label}: "), header_style()),
-                Span::styled(value.clone(), value_style()),
-            ])
-        })
-        .collect();
-
-    let technical_lines: Vec<Line> = technical_metrics
-        .iter()
-        .map(|(label, value)| {
-            Line::from(vec![
-                Span::styled(format!("{label}: "), header_style()),
-                Span::styled(value.clone(), value_style()),
-            ])
-        })
-        .collect();
-
-    let max_summary_rows = summary_lines.len().max(technical_lines.len());
-    let mut summary_height = max_summary_rows.saturating_add(2) as u16;
-    let max_height = area.height.max(1u16);
-    if summary_height > max_height {
-        summary_height = max_height;
-    }
-    let min_required = 3u16.min(max_height);
-    if summary_height < min_required {
-        summary_height = min_required;
-    }
-
-    let constraints = if show_panel {
-        vec![
-            Constraint::Length(summary_height),
-            Constraint::Min(6),
-            Constraint::Length(4),
-            Constraint::Length(LB_PANEL_HEIGHT),
-            Constraint::Length(1),
-        ]
-    } else {
-        vec![
-            Constraint::Length(summary_height),
-            Constraint::Min(6),
-            Constraint::Length(4),
-            Constraint::Length(1),
-        ]
-    };
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(constraints)
-        .split(area);
-
-    let summary_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
-        .split(layout[0]);
-
-    let summary = Paragraph::new(summary_lines)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(Line::from(vec![Span::styled(
-                    format!("Details · {title}"),
-                    title_style(),
-                )])),
-        )
-        .alignment(Alignment::Left);
-    f.render_widget(summary, summary_chunks[0]);
-
-    let technical = Paragraph::new(technical_lines)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(Line::from(vec![Span::styled(
-                    "Technical Details".to_string(),
-                    title_style(),
-                )])),
-        )
-        .alignment(Alignment::Left);
-    f.render_widget(technical, summary_chunks[1]);
-
-    if sorted_rows.is_empty() {
-        let block = Paragraph::new("No combatants recorded.")
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL));
-        f.render_widget(block, layout[1]);
-    } else {
-        let table_title = Line::from(vec![
-            Span::styled(
-                format!("Combatants · {}", detail_mode.label()),
-                title_style(),
-            ),
-            Span::raw(" "),
-            Span::styled(
-                "(m toggles)",
-                Style::default().fg(text_color()),
-            ),
-        ]);
-        let block = Block::default().borders(Borders::ALL).title(table_title);
-        let table_area = layout[1];
-        let inner = block.inner(table_area);
-        f.render_widget(block, table_area);
-
-        let ctx = TableRenderContext {
-            rows: &sorted_rows,
-            mode: detail_mode,
+    draw_encounter_record(
+        f,
+        area,
+        EncounterDetailParams {
+            record: encounter_record,
+            title,
+            zone_fallback: run.zone.clone(),
+            last_seen_label: format_timestamp_label(encounter_record.last_seen_ms),
+            detail_mode: s.history.detail_mode,
             decoration: s.decoration,
-        };
-        draw_table_with_context(f, inner, &ctx);
-    }
-
-    let metric_label = match detail_mode {
-        ViewMode::Dps => "ENCDPS",
-        ViewMode::Heal => "ENCHPS",
-    };
-    let metric_value = match detail_mode {
-        ViewMode::Dps => &encounter_record.encounter.encdps,
-        ViewMode::Heal => &encounter_record.encounter.enchps,
-    };
-    let total_label = match detail_mode {
-        ViewMode::Dps => "Total Damage",
-        ViewMode::Heal => "Total Healed",
-    };
-    let total_value = match detail_mode {
-        ViewMode::Dps => &encounter_record.encounter.damage,
-        ViewMode::Heal => &encounter_record.encounter.healed,
-    };
-
-    let metric_value = if metric_value.is_empty() {
-        "—".to_string()
-    } else {
-        metric_value.clone()
-    };
-    let total_value = if total_value.is_empty() {
-        "—".to_string()
-    } else {
-        total_value.clone()
-    };
-
-    let mode_lines = vec![
-        Line::from(vec![
-            Span::styled("Current: ", header_style()),
-            Span::styled(detail_mode.label(), value_style()),
-            Span::styled(
-                " · press m to toggle",
-                Style::default().fg(text_color()),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("Sorting: ", header_style()),
-            Span::styled(metric_label, value_style()),
-            Span::styled(
-                " · encounter ",
-                Style::default().fg(text_color()),
-            ),
-            Span::styled(metric_label, value_style()),
-            Span::styled(": ", Style::default().fg(text_color())),
-            Span::styled(metric_value, value_style()),
-            Span::styled(" · ", Style::default().fg(text_color())),
-            Span::styled(total_label, header_style()),
-            Span::styled(": ", Style::default().fg(text_color())),
-            Span::styled(total_value, value_style()),
-        ]),
-    ];
-
-    let mode_paragraph = Paragraph::new(mode_lines).alignment(Alignment::Left).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(Line::from(vec![Span::styled("View Mode", title_style())])),
+            limit_break_mode: s.settings.limit_break_mode,
+            footer_hint: "← run detail · ↑/↓ switch pull · m toggles DPS/Heal · Enter re-open",
+        },
     );
-    f.render_widget(mode_paragraph, layout[2]);
-
-    let hint_idx = if show_panel {
-        let placeholder = LimitBreakSummary {
-            user: "—".to_string(),
-            damage: 0,
-        };
-        let lb_ref = encounter_record.lb_summary.as_ref().unwrap_or(&placeholder);
-        draw_lb_box(f, layout[3], &lb_ref.user, lb_ref.damage);
-        4
-    } else {
-        3
-    };
-
-    let hint =
-        Paragraph::new("← run detail · ↑/↓ switch pull · m toggles DPS/Heal · Enter re-open")
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::NONE));
-    f.render_widget(hint, layout[hint_idx]);
-}
-
-fn draw_lb_box(f: &mut Frame, area: Rect, user: &str, damage: u64) {
-    let content_line = Line::from(vec![
-        Span::styled("Name: ", header_style()),
-        Span::styled(user.to_string(), value_style()),
-        Span::raw("  "),
-        Span::styled("Damage: ", header_style()),
-        Span::styled(damage.to_string(), value_style()),
-    ]);
-
-    let border_style = ratatui::style::Style::default().fg(ratatui::style::Color::Rgb(170, 170, 180));
-
-    let widget = Paragraph::new(content_line)
-        .alignment(Alignment::Left)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(border_style)
-                .title(Line::from(vec![Span::styled("Limit Break", title_style())])),
-        );
-    f.render_widget(widget, area);
-}
-
-fn sort_rows_for_mode(rows: &mut [CombatantRow], mode: ViewMode) {
-    match mode {
-        ViewMode::Dps => rows.sort_by(|a, b| {
-            b.encdps
-                .partial_cmp(&a.encdps)
-                .unwrap_or(Ordering::Equal)
-                .then_with(|| a.name.cmp(&b.name))
-        }),
-        ViewMode::Heal => rows.sort_by(|a, b| {
-            b.enchps
-                .partial_cmp(&a.enchps)
-                .unwrap_or(Ordering::Equal)
-                .then_with(|| a.name.cmp(&b.name))
-        }),
-    }
 }
 
 fn render_loading_overlay(f: &mut Frame, area: Rect, message: &str) {
@@ -1196,28 +646,6 @@ fn render_loading_overlay(f: &mut Frame, area: Rect, message: &str) {
     f.render_widget(block, overlay);
 }
 
-fn format_duration_short(total_secs: u64) -> String {
-    if total_secs == 0 {
-        return "00:00".to_string();
-    }
-    let hours = total_secs / 3600;
-    let minutes = (total_secs % 3600) / 60;
-    let seconds = total_secs % 60;
-    if hours > 0 {
-        format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
-    } else {
-        format!("{:02}:{:02}", minutes, seconds)
-    }
-}
-
-fn format_number(value: f64) -> String {
-    if value.abs() >= 1000.0 {
-        format!("{:.0}", value)
-    } else {
-        format!("{:.1}", value)
-    }
-}
-
 fn format_timestamp_label(ms: u64) -> String {
     if let Ok(ms_i64) = i64::try_from(ms) {
         if let Some(dt) = Local.timestamp_millis_opt(ms_i64).single() {
@@ -1231,5 +659,5 @@ fn format_party_signature(sig: &[String]) -> String {
     if sig.is_empty() {
         return "Unknown".to_string();
     }
-    sig.iter().cloned().collect::<Vec<_>>().join(", ")
+    sig.join(", ")
 }

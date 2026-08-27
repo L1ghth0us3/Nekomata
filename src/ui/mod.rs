@@ -1,12 +1,13 @@
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::Frame;
 
-use crate::history::util::{parse_duration_secs, parse_number};
 use crate::model::{AppSnapshot, LimitBreakMode, LimitBreakSummary, ViewMode};
 use crate::{ui_history, ui_idle};
 
+mod encounter_detail;
 mod header;
 mod lb;
+pub(crate) use encounter_detail::{draw_encounter_record, EncounterDetailParams};
 pub(crate) use lb::LB_PANEL_HEIGHT;
 mod settings;
 mod status;
@@ -45,14 +46,18 @@ pub fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     } else {
         snap_for_table = snapshot.clone();
         if show_table_row && snap_for_table.mode == ViewMode::Dps {
-            if let Some(lb) = snap_for_table.lb_summary.as_ref() {
-                snap_for_table.rows = build_lb_table_rows(snapshot, lb);
+            if let (Some(lb), Some(enc)) = (
+                snap_for_table.lb_summary.as_ref(),
+                snap_for_table.encounter.as_ref(),
+            ) {
+                let mut rows = snap_for_table.rows.clone();
+                lb::inject_lb_table_row(&mut rows, lb, enc, ViewMode::Dps);
+                snap_for_table.rows = rows;
             }
         }
         &snap_for_table
     };
 
-    // If we didn't draw idle overlay, render the table (possibly with LB injected).
     if !(snapshot.is_idle && snapshot.show_idle_overlay) {
         table::draw(f, chunks[1], snap_ref);
     }
@@ -78,69 +83,4 @@ pub fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     if snapshot.show_settings {
         settings::draw(f, snapshot);
     }
-}
-
-fn format_number(value: f64) -> String {
-    if value.abs() >= 1000.0 {
-        format!("{:.0}", value)
-    } else {
-        format!("{:.1}", value)
-    }
-}
-
-fn build_lb_table_rows(snapshot: &AppSnapshot, lb: &LimitBreakSummary) -> Vec<crate::model::CombatantRow> {
-    use std::cmp::Ordering;
-    let mut rows = snapshot.rows.clone();
-
-    let total_damage = snapshot
-        .encounter
-        .as_ref()
-        .map(|e| parse_number(&e.damage))
-        .unwrap_or(0.0);
-
-    let damage = lb.damage as f64;
-    let share = if total_damage > 0.0 {
-        (damage / total_damage).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-
-    let duration_secs = snapshot
-        .encounter
-        .as_ref()
-        .and_then(|e| parse_duration_secs(&e.duration))
-        .filter(|secs| *secs > 0)
-        .map(|secs| secs as f64)
-        .unwrap_or(1.0);
-    let encdps = damage / duration_secs;
-
-    let lb_row = crate::model::CombatantRow {
-        name: "Limit Break".to_string(),
-        job: "LB".to_string(),
-        encdps,
-        encdps_str: format_number(encdps),
-        damage,
-        damage_str: format_number(damage),
-        share,
-        share_str: format!("{:.1}%", share * 100.0),
-        enchps: 0.0,
-        enchps_str: "0".to_string(),
-        healed: 0.0,
-        healed_str: "0".to_string(),
-        heal_share: 0.0,
-        heal_share_str: "0.0%".to_string(),
-        overheal_pct: "0".to_string(),
-        crit: "0".to_string(),
-        dh: "0".to_string(),
-        deaths: "0".to_string(),
-    };
-
-    rows.push(lb_row);
-    rows.sort_by(|a, b| {
-        b.encdps
-            .partial_cmp(&a.encdps)
-            .unwrap_or(Ordering::Equal)
-            .then_with(|| a.name.cmp(&b.name))
-    });
-    rows
 }

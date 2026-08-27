@@ -36,6 +36,28 @@ pub(crate) fn parse_number(s: &str) -> f64 {
     buf.parse::<f64>().unwrap_or(0.0)
 }
 
+pub(crate) fn format_number(value: f64) -> String {
+    if value.abs() >= 1000.0 {
+        format!("{:.0}", value)
+    } else {
+        format!("{:.1}", value)
+    }
+}
+
+pub(crate) fn format_duration_label(total_secs: u64) -> String {
+    if total_secs == 0 {
+        return "00:00".to_string();
+    }
+    let hours = total_secs / 3600;
+    let minutes = (total_secs % 3600) / 60;
+    let seconds = total_secs % 60;
+    if hours > 0 {
+        format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+    } else {
+        format!("{:02}:{:02}", minutes, seconds)
+    }
+}
+
 pub(crate) fn party_signature(rows: &[CombatantRow]) -> Vec<String> {
     let mut entries: Vec<String> = rows
         .iter()
