@@ -78,4 +78,4 @@ jobs:
             - Linux x86_64 (glibc): `nekomata-<tag>-linux-x86_64.tar.gz`
             - Windows x86_64 (MSVC): `nekomata-<tag>-windows-x86_64.zip`
 
-            See [CHANGELOG.md](https://github.com/L1ghth0us3/iinact-tui/blob/main/CHANGELOG.md) for the full v0.5.0 notes.
+            See [CHANGELOG.md](https://github.com/L1ghth0us3/Nekomata/blob/main/CHANGELOG.md) for the full v0.5.0 notes.

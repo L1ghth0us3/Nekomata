@@ -26,7 +26,7 @@
 
 ### Prebuilt binaries (v0.5+)
 
-Download the archive for your OS from the [GitHub Releases](https://github.com/L1ghth0us3/iinact-tui/releases) page:
+Download the archive for your OS from the [GitHub Releases](https://github.com/L1ghth0us3/Nekomata/releases) page:
 
 - Linux x86_64 (glibc): `nekomata-v0.5-linux-x86_64.tar.gz`
 - Windows x86_64: `nekomata-v0.5-windows-x86_64.zip`
