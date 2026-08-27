@@ -24,6 +24,15 @@ pub struct AppConfig {
     pub theme_id: String,
     #[serde(default = "default_role_theme_enabled")]
     pub role_theme_enabled: bool,
+    /// 0=Off, 1=PanelAlways, 2=TableRow
+    /// Kept as `Option` to allow migrating from older configs that had `show_limit_break`.
+    #[serde(default)]
+    pub limit_break_mode: Option<u8>,
+    /// Legacy boolean config key. If present and `limit_break_mode` is missing, it maps to:
+    /// - `false` => Off (0)
+    /// - `true` => PanelAlways (1)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_limit_break: Option<bool>,
 }
 
 impl Default for AppConfig {
@@ -35,6 +44,8 @@ impl Default for AppConfig {
             dungeon_mode_enabled: default_dungeon_mode_enabled(),
             theme_id: default_theme_id(),
             role_theme_enabled: default_role_theme_enabled(),
+            limit_break_mode: Some(default_limit_break_mode()),
+            show_limit_break: None,
         }
     }
 }
@@ -61,6 +72,10 @@ fn default_theme_id() -> String {
 
 fn default_role_theme_enabled() -> bool {
     true
+}
+
+fn default_limit_break_mode() -> u8 {
+    1
 }
 
 pub fn load() -> Result<AppConfig> {

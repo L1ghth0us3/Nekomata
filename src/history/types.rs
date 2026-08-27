@@ -3,12 +3,12 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::model::{CombatantRow, EncounterSummary};
+use crate::model::{CombatantRow, EncounterSummary, LimitBreakSummary};
 
 pub(crate) const ENCOUNTER_NAMESPACE: &str = "enc";
 pub(crate) const DUNGEON_NAMESPACE: &str = "dun";
 pub(crate) const KEY_SEPARATOR: u8 = 0x1F;
-pub(crate) const SCHEMA_VERSION: u32 = 2;
+pub(crate) const SCHEMA_VERSION: u32 = 3;
 pub(crate) const META_SCHEMA_VERSION_KEY: &[u8] = b"schema/version";
 
 /// Snapshot prepared for persistence; keeps the raw payload around for future use.
@@ -18,6 +18,7 @@ pub struct EncounterSnapshot {
     pub rows: Vec<CombatantRow>,
     pub raw: Value,
     pub received_ms: u64,
+    pub lb_summary: Option<LimitBreakSummary>,
 }
 
 impl EncounterSnapshot {
@@ -27,7 +28,13 @@ impl EncounterSnapshot {
             rows,
             raw,
             received_ms: now_ms(),
+            lb_summary: None,
         }
+    }
+
+    pub fn with_lb_summary(mut self, lb_summary: Option<LimitBreakSummary>) -> Self {
+        self.lb_summary = lb_summary;
+        self
     }
 }
 
@@ -83,6 +90,8 @@ pub struct EncounterRecord {
     pub saw_active: bool,
     #[serde(default)]
     pub frames: Vec<EncounterFrame>,
+    #[serde(default)]
+    pub lb_summary: Option<LimitBreakSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,6 +116,8 @@ pub struct EncounterFrame {
     pub encounter: EncounterSummary,
     pub rows: Vec<CombatantRow>,
     pub raw: Value,
+    #[serde(default)]
+    pub lb_summary: Option<LimitBreakSummary>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

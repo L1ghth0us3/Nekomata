@@ -10,10 +10,12 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
 use crate::history::RecorderHandle;
-use crate::model::AppEvent;
-use crate::parse::parse_combat_data;
+use crate::model::{AppEvent, LimitBreakSummary};
+use crate::parse::{parse_combat_data, parse_logline_for_lb, ParsedLogLineEvent};
 
 pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: RecorderHandle) {
+    let mut current_lb: Option<LimitBreakSummary> = None;
+    let mut prev_encounter: Option<crate::model::EncounterSummary> = None;
     // Simple reconnect loop
     loop {
         debug!(%ws_url, "websocket connect attempt");
@@ -46,7 +48,16 @@ pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: Recorde
                         Ok(Message::Text(txt)) => match serde_json::from_str::<Value>(&txt) {
                             Ok(val) => {
                                 if let Some((enc, rows)) = parse_combat_data(&val) {
-                                    history.record_components(enc.clone(), rows.clone(), val);
+                                    if should_reset_lb(prev_encounter.as_ref(), &enc) {
+                                        current_lb = None;
+                                    }
+                                    history.record_components(
+                                        enc.clone(),
+                                        rows.clone(),
+                                        val,
+                                        current_lb.clone(),
+                                    );
+                                    prev_encounter = Some(enc.clone());
                                     if tx
                                         .send(AppEvent::CombatData {
                                             encounter: enc,
@@ -56,6 +67,28 @@ pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: Recorde
                                     {
                                         warn!("receiver dropped websocket updates");
                                         break;
+                                    }
+                                } else if let Some(lb_event) = parse_logline_for_lb(&val) {
+                                    match lb_event {
+                                        ParsedLogLineEvent::LimitBreakCast(cast) => {
+                                            current_lb = Some(LimitBreakSummary {
+                                                user: cast.source_name.clone(),
+                                                damage: 0,
+                                            });
+                                            if tx.send(AppEvent::LimitBreakCast { cast }).is_err() {
+                                                warn!("receiver dropped lb cast update");
+                                                break;
+                                            }
+                                        }
+                                        ParsedLogLineEvent::LimitBreakHit(hit) => {
+                                            if let Some(lb) = current_lb.as_mut() {
+                                                lb.damage = lb.damage.saturating_add(hit.damage);
+                                            }
+                                            if tx.send(AppEvent::LimitBreakHit { hit }).is_err() {
+                                                warn!("receiver dropped lb hit update");
+                                                break;
+                                            }
+                                        }
                                     }
                                 } else {
                                     let event_type = val
@@ -99,6 +132,8 @@ pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: Recorde
             Err(err) => {
                 warn!(error = ?err, "websocket connection failed");
                 history.flush();
+                prev_encounter = None;
+                current_lb = None;
                 if tx.send(AppEvent::Disconnected).is_err() {
                     debug!("receiver dropped disconnected event");
                 }
@@ -108,6 +143,36 @@ pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: Recorde
         // Backoff before reconnect
         sleep(Duration::from_secs(1)).await;
     }
+}
+
+fn should_reset_lb(
+    prev: Option<&crate::model::EncounterSummary>,
+    next: &crate::model::EncounterSummary,
+) -> bool {
+    let Some(prev) = prev else {
+        return !next.is_active;
+    };
+    if !next.is_active {
+        return false;
+    }
+    if !prev.is_active {
+        return true;
+    }
+    let prev_secs = parse_duration_seconds(&prev.duration).unwrap_or(0);
+    let next_secs = parse_duration_seconds(&next.duration).unwrap_or(0);
+    if next_secs + 2 < prev_secs {
+        return true;
+    }
+    let prev_damage = prev.damage.replace(',', "").parse::<f64>().unwrap_or(0.0);
+    let next_damage = next.damage.replace(',', "").parse::<f64>().unwrap_or(0.0);
+    next_damage + 1.0 < prev_damage
+}
+
+fn parse_duration_seconds(s: &str) -> Option<u64> {
+    let mut it = s.split(':');
+    let m = it.next()?.parse::<u64>().ok()?;
+    let sec = it.next()?.parse::<u64>().ok()?;
+    Some(m.saturating_mul(60).saturating_add(sec))
 }
 
 fn log_close_frame(frame: Option<&CloseFrame<'_>>) {

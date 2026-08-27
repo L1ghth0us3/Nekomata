@@ -43,6 +43,28 @@ pub struct CombatantRow {
     pub deaths: String,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct LimitBreakSummary {
+    pub user: String,
+    pub damage: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LimitBreakCast {
+    pub source_id: String,
+    pub source_name: String,
+    pub action_id: String,
+    pub sequence: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LimitBreakHit {
+    pub source_id: String,
+    pub action_id: String,
+    pub sequence: String,
+    pub damage: u64,
+}
+
 #[derive(Debug)]
 pub enum AppEvent {
     Connected,
@@ -50,6 +72,12 @@ pub enum AppEvent {
     CombatData {
         encounter: EncounterSummary,
         rows: Vec<CombatantRow>,
+    },
+    LimitBreakCast {
+        cast: LimitBreakCast,
+    },
+    LimitBreakHit {
+        hit: LimitBreakHit,
     },
     HistoryDatesLoaded {
         days: Vec<HistoryDay>,

@@ -114,6 +114,7 @@ mod tests {
             snapshots: 0,
             saw_active: false,
             frames: Vec::new(),
+            lb_summary: None,
         };
         record.encounter.title = "Boss Fight".into();
         assert_eq!(resolve_title(&record), "Boss Fight");

@@ -6,6 +6,10 @@ use crate::config::AppConfig;
 
 use super::{Decoration, ViewMode};
 
+pub const LIMIT_BREAK_MODE_OFF: u8 = 0;
+pub const LIMIT_BREAK_MODE_PANEL: u8 = 1;
+pub const LIMIT_BREAK_MODE_TABLE: u8 = 2;
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum SettingsField {
     #[default]
@@ -13,6 +17,7 @@ pub enum SettingsField {
     DefaultDecoration,
     DefaultMode,
     DungeonMode,
+    LimitBreakMode,
     Theme,
     RoleTheme,
 }
@@ -23,7 +28,8 @@ impl SettingsField {
             SettingsField::IdleTimeout => SettingsField::DefaultDecoration,
             SettingsField::DefaultDecoration => SettingsField::DefaultMode,
             SettingsField::DefaultMode => SettingsField::DungeonMode,
-            SettingsField::DungeonMode => SettingsField::Theme,
+            SettingsField::DungeonMode => SettingsField::LimitBreakMode,
+            SettingsField::LimitBreakMode => SettingsField::Theme,
             SettingsField::Theme => SettingsField::RoleTheme,
             SettingsField::RoleTheme => SettingsField::IdleTimeout,
         }
@@ -35,7 +41,8 @@ impl SettingsField {
             SettingsField::DefaultDecoration => SettingsField::IdleTimeout,
             SettingsField::DefaultMode => SettingsField::DefaultDecoration,
             SettingsField::DungeonMode => SettingsField::DefaultMode,
-            SettingsField::Theme => SettingsField::DungeonMode,
+            SettingsField::LimitBreakMode => SettingsField::DungeonMode,
+            SettingsField::Theme => SettingsField::LimitBreakMode,
             SettingsField::RoleTheme => SettingsField::Theme,
         }
     }
@@ -49,6 +56,8 @@ pub struct AppSettings {
     pub dungeon_mode_enabled: bool,
     pub theme_id: String,
     pub role_theme_enabled: bool,
+    /// 0=Off, 1=PanelAlways, 2=TableRow
+    pub limit_break_mode: u8,
 }
 
 impl Default for AppSettings {
@@ -60,6 +69,7 @@ impl Default for AppSettings {
             dungeon_mode_enabled: true,
             theme_id: String::new(),
             role_theme_enabled: true,
+            limit_break_mode: LIMIT_BREAK_MODE_PANEL,
         }
     }
 }
@@ -76,6 +86,13 @@ impl AppSettings {
 
 impl From<AppConfig> for AppSettings {
     fn from(value: AppConfig) -> Self {
+        let limit_break_mode = value.limit_break_mode.or_else(|| {
+            value
+                .show_limit_break
+                .map(|b| if b { LIMIT_BREAK_MODE_PANEL } else { LIMIT_BREAK_MODE_OFF })
+        });
+        let limit_break_mode = limit_break_mode.unwrap_or(LIMIT_BREAK_MODE_PANEL);
+
         Self {
             idle_seconds: value.idle_seconds,
             default_decoration: Decoration::from_config_key(&value.default_decoration),
@@ -83,6 +100,7 @@ impl From<AppConfig> for AppSettings {
             dungeon_mode_enabled: value.dungeon_mode_enabled,
             theme_id: value.theme_id,
             role_theme_enabled: value.role_theme_enabled,
+            limit_break_mode,
         }
     }
 }
@@ -96,6 +114,8 @@ impl From<AppSettings> for AppConfig {
             dungeon_mode_enabled: value.dungeon_mode_enabled,
             theme_id: value.theme_id,
             role_theme_enabled: value.role_theme_enabled,
+            limit_break_mode: Some(value.limit_break_mode),
+            show_limit_break: None,
         }
     }
 }

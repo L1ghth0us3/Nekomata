@@ -14,6 +14,7 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     let decor_selected = matches!(snapshot.settings_cursor, SettingsField::DefaultDecoration);
     let mode_selected = matches!(snapshot.settings_cursor, SettingsField::DefaultMode);
     let dungeon_selected = matches!(snapshot.settings_cursor, SettingsField::DungeonMode);
+    let limit_break_selected = matches!(snapshot.settings_cursor, SettingsField::LimitBreakMode);
     let theme_selected = matches!(snapshot.settings_cursor, SettingsField::Theme);
     let role_theme_selected = matches!(snapshot.settings_cursor, SettingsField::RoleTheme);
 
@@ -50,6 +51,11 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
         } else {
             "OFF".to_string()
         },
+    ));
+    lines.push(setting_line(
+        limit_break_selected,
+        "Limit break display",
+        limit_break_mode_label(snapshot.settings.limit_break_mode),
     ));
     lines.push(setting_line(
         theme_selected,
@@ -144,6 +150,15 @@ fn current_theme_name(theme_id: &str) -> String {
             .find(|d| d.id == default_id)
             .map(|d| d.name)
             .unwrap_or_else(|| "Synth Wave".to_string())
+    }
+}
+
+fn limit_break_mode_label(mode: u8) -> String {
+    match mode {
+        0 => "OFF".to_string(),
+        1 => "PANEL".to_string(),
+        2 => "TABLE".to_string(),
+        _ => "OFF".to_string(),
     }
 }
 

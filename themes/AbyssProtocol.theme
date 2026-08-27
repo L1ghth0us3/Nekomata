@@ -1,0 +1,53 @@
+[meta]
+name = "Abyss Protocol"
+
+[palette]
+accent = "#E01835"               # Crimson — theme identity
+accent_2 = "#8A929A"             # Gunmetal
+text = "#D8D8D8"                 # Kitty foreground
+status_idle = "#A85A58"          # Dried rose
+status_disconnected = "#FF304F"  # Flare red
+
+[roles]
+tank = "#8A929A"   # Gunmetal (theme blue)
+healer = "#7A8B82" # Iron ash (theme green)
+dps = "#B50924"    # Blood crimson
+
+[jobs]
+# Tanks — gunmetal / ash blues
+PLD = "#8A929A"
+WAR = "#C41A32"
+DRK = "#9A3048"
+GNB = "#5A6068"
+# Healers — iron ash greens / cool ash
+WHM = "#7A8B82"
+SCH = "#5A6468"
+AST = "#D07A78"
+SGE = "#8A969A"
+# Melee — crimson ramp / wine / rose
+MNK = "#A85A58"
+DRG = "#8A929A"
+NIN = "#E01835"
+SAM = "#D07A78"
+RPR = "#9A3048"
+VPR = "#FF304F"
+# Ranged phys
+BRD = "#7A8B82"
+MCH = "#8A969A"
+DNC = "#E04868"
+# Casters
+BLM = "#5A6068"
+SMN = "#5A6B62"
+RDM = "#C41A32"
+PCT = "#898D91"
+# Limited
+BLU = "#5A6468"
+# Pre-Jobs
+GLD = "#A85A58"
+PGL = "#8A929A"
+MRD = "#E01835"
+LNC = "#D07A78"
+ARC = "#9A3048"
+CNJ = "#8A969A"
+THM = "#FF304F"
+ROG = "#5A6468"

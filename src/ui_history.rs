@@ -8,10 +8,11 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragra
 use ratatui::Frame;
 
 use crate::model::{
-    AppSnapshot, CombatantRow, DungeonPanelLevel, HistoryPanelLevel, HistoryView, ViewMode,
+    AppSnapshot, CombatantRow, DungeonPanelLevel, HistoryPanelLevel, HistoryView,
+    LimitBreakSummary, ViewMode, LIMIT_BREAK_MODE_PANEL, LIMIT_BREAK_MODE_TABLE,
 };
 use crate::theme::{accent_color, header_style, text_color, title_style, value_style};
-use crate::ui::{draw_table_with_context, TableRenderContext};
+use crate::ui::{draw_table_with_context, TableRenderContext, LB_PANEL_HEIGHT};
 
 pub fn draw_history(f: &mut Frame, s: &AppSnapshot) {
     let area = f.size();
@@ -335,16 +336,76 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
 
     let detail_mode = s.history.detail_mode;
     let mut sorted_rows = record.rows.clone();
+    let show_panel = s.settings.limit_break_mode == LIMIT_BREAK_MODE_PANEL;
+    let show_table_row = s.settings.limit_break_mode == LIMIT_BREAK_MODE_TABLE;
+
+    if show_table_row && detail_mode == ViewMode::Dps {
+        if let Some(lb) = record.lb_summary.as_ref() {
+            let total_damage = record
+                .encounter
+                .damage
+                .replace(',', "")
+                .parse::<f64>()
+                .unwrap_or(0.0);
+            let damage = lb.damage as f64;
+            let share = if total_damage > 0.0 {
+                (damage / total_damage).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+
+            let format_number = |v: f64| {
+                if v.abs() >= 1000.0 {
+                    format!("{:.0}", v)
+                } else {
+                    format!("{:.1}", v)
+                }
+            };
+
+            sorted_rows.push(CombatantRow {
+                name: "Limit Break".to_string(),
+                job: "LB".to_string(),
+                encdps: damage,
+                encdps_str: format_number(damage),
+                damage,
+                damage_str: format_number(damage),
+                share,
+                share_str: format!("{:.1}%", share * 100.0),
+                enchps: 0.0,
+                enchps_str: "0".to_string(),
+                healed: 0.0,
+                healed_str: "0".to_string(),
+                heal_share: 0.0,
+                heal_share_str: "0.0%".to_string(),
+                overheal_pct: "0".to_string(),
+                crit: "0".to_string(),
+                dh: "0".to_string(),
+                deaths: "0".to_string(),
+            });
+        }
+    }
+
     sort_rows_for_mode(&mut sorted_rows, detail_mode);
 
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
+    let constraints = if show_panel {
+        vec![
+            Constraint::Length(summary_height),
+            Constraint::Min(6),
+            Constraint::Length(4),
+            Constraint::Length(LB_PANEL_HEIGHT),
+            Constraint::Length(1),
+        ]
+    } else {
+        vec![
             Constraint::Length(summary_height),
             Constraint::Min(6),
             Constraint::Length(4),
             Constraint::Length(1),
-        ])
+        ]
+    };
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
         .split(area);
 
     let summary_chunks = Layout::default()
@@ -461,10 +522,22 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     );
     f.render_widget(mode_paragraph, layout[2]);
 
+    let hint_idx = if show_panel {
+        let placeholder = LimitBreakSummary {
+            user: "—".to_string(),
+            damage: 0,
+        };
+        let lb_ref = record.lb_summary.as_ref().unwrap_or(&placeholder);
+        draw_lb_box(f, layout[3], &lb_ref.user, lb_ref.damage);
+        4
+    } else {
+        3
+    };
+
     let hint = Paragraph::new("← back · ↑/↓ switch encounter · m toggles DPS/Heal · Enter re-open")
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::NONE));
-    f.render_widget(hint, layout[3]);
+    f.render_widget(hint, layout[hint_idx]);
 }
 
 fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
@@ -788,6 +861,56 @@ fn draw_dungeon_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
 
     let detail_mode = s.history.detail_mode;
     let mut sorted_rows = encounter_record.rows.clone();
+
+    let show_panel = s.settings.limit_break_mode == LIMIT_BREAK_MODE_PANEL;
+    let show_table_row = s.settings.limit_break_mode == LIMIT_BREAK_MODE_TABLE;
+
+    if show_table_row && detail_mode == ViewMode::Dps {
+        if let Some(lb) = encounter_record.lb_summary.as_ref() {
+            let total_damage = encounter_record
+                .encounter
+                .damage
+                .replace(',', "")
+                .parse::<f64>()
+                .unwrap_or(0.0);
+            let damage = lb.damage as f64;
+            let share = if total_damage > 0.0 {
+                (damage / total_damage).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+
+            let format_number = |v: f64| {
+                if v.abs() >= 1000.0 {
+                    format!("{:.0}", v)
+                } else {
+                    format!("{:.1}", v)
+                }
+            };
+
+            sorted_rows.push(CombatantRow {
+                name: "Limit Break".to_string(),
+                job: "LB".to_string(),
+                encdps: damage,
+                encdps_str: format_number(damage),
+                damage,
+                damage_str: format_number(damage),
+                share,
+                share_str: format!("{:.1}%", share * 100.0),
+                enchps: 0.0,
+                enchps_str: "0".to_string(),
+                healed: 0.0,
+                healed_str: "0".to_string(),
+                heal_share: 0.0,
+                heal_share_str: "0.0%".to_string(),
+                overheal_pct: "0".to_string(),
+                crit: "0".to_string(),
+                dh: "0".to_string(),
+                deaths: "0".to_string(),
+            });
+        }
+    }
+
     sort_rows_for_mode(&mut sorted_rows, detail_mode);
 
     let basic_metrics = [
@@ -852,14 +975,25 @@ fn draw_dungeon_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         summary_height = min_required;
     }
 
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
+    let constraints = if show_panel {
+        vec![
+            Constraint::Length(summary_height),
+            Constraint::Min(6),
+            Constraint::Length(4),
+            Constraint::Length(LB_PANEL_HEIGHT),
+            Constraint::Length(1),
+        ]
+    } else {
+        vec![
             Constraint::Length(summary_height),
             Constraint::Min(6),
             Constraint::Length(4),
             Constraint::Length(1),
-        ])
+        ]
+    };
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
         .split(area);
 
     let summary_chunks = Layout::default()
@@ -982,11 +1116,45 @@ fn draw_dungeon_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     );
     f.render_widget(mode_paragraph, layout[2]);
 
+    let hint_idx = if show_panel {
+        let placeholder = LimitBreakSummary {
+            user: "—".to_string(),
+            damage: 0,
+        };
+        let lb_ref = encounter_record.lb_summary.as_ref().unwrap_or(&placeholder);
+        draw_lb_box(f, layout[3], &lb_ref.user, lb_ref.damage);
+        4
+    } else {
+        3
+    };
+
     let hint =
         Paragraph::new("← run detail · ↑/↓ switch pull · m toggles DPS/Heal · Enter re-open")
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::NONE));
-    f.render_widget(hint, layout[3]);
+    f.render_widget(hint, layout[hint_idx]);
+}
+
+fn draw_lb_box(f: &mut Frame, area: Rect, user: &str, damage: u64) {
+    let content_line = Line::from(vec![
+        Span::styled("Name: ", header_style()),
+        Span::styled(user.to_string(), value_style()),
+        Span::raw("  "),
+        Span::styled("Damage: ", header_style()),
+        Span::styled(damage.to_string(), value_style()),
+    ]);
+
+    let border_style = ratatui::style::Style::default().fg(ratatui::style::Color::Rgb(170, 170, 180));
+
+    let widget = Paragraph::new(content_line)
+        .alignment(Alignment::Left)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(Line::from(vec![Span::styled("Limit Break", title_style())])),
+        );
+    f.render_widget(widget, area);
 }
 
 fn sort_rows_for_mode(rows: &mut [CombatantRow], mode: ViewMode) {

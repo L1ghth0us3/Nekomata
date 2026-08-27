@@ -6,7 +6,7 @@ use tokio::task;
 
 use crate::dungeon::DungeonCatalog;
 use crate::errors::{AppError, AppErrorKind};
-use crate::model::{AppEvent, CombatantRow, EncounterSummary};
+use crate::model::{AppEvent, CombatantRow, EncounterSummary, LimitBreakSummary};
 
 use super::dungeon::{DungeonRecorder, DungeonRecorderUpdate, DungeonZoneState};
 use super::store::HistoryStore;
@@ -35,8 +35,9 @@ impl RecorderHandle {
         encounter: EncounterSummary,
         rows: Vec<CombatantRow>,
         raw: Value,
+        lb_summary: Option<LimitBreakSummary>,
     ) {
-        self.record(EncounterSnapshot::new(encounter, rows, raw));
+        self.record(EncounterSnapshot::new(encounter, rows, raw).with_lb_summary(lb_summary));
     }
 
     pub fn flush(&self) {
@@ -265,6 +266,7 @@ struct ActiveEncounter {
     last_raw: Value,
     saw_active: bool,
     frames: Vec<EncounterFrame>,
+    lb_summary: Option<LimitBreakSummary>,
 }
 
 impl ActiveEncounter {
@@ -274,9 +276,16 @@ impl ActiveEncounter {
             rows,
             raw,
             received_ms,
+            lb_summary,
         } = snapshot;
         let is_active = encounter.is_active;
-        let frame = EncounterFrame::new(received_ms, encounter.clone(), rows.clone(), raw.clone());
+        let frame = EncounterFrame::new(
+            received_ms,
+            encounter.clone(),
+            rows.clone(),
+            raw.clone(),
+            lb_summary.clone(),
+        );
         Self {
             first_seen_ms: received_ms,
             last_seen_ms: received_ms,
@@ -285,6 +294,7 @@ impl ActiveEncounter {
             last_raw: raw,
             saw_active: is_active,
             frames: vec![frame],
+            lb_summary,
         }
     }
 
@@ -295,13 +305,21 @@ impl ActiveEncounter {
             rows,
             raw,
             received_ms,
+            lb_summary,
         } = snapshot;
-        let frame = EncounterFrame::new(received_ms, encounter.clone(), rows.clone(), raw.clone());
+        let frame = EncounterFrame::new(
+            received_ms,
+            encounter.clone(),
+            rows.clone(),
+            raw.clone(),
+            lb_summary.clone(),
+        );
         self.latest_summary = encounter;
         self.latest_rows = rows;
         self.last_raw = raw;
         self.frames.push(frame);
         self.saw_active |= self.latest_summary.is_active;
+        self.lb_summary = lb_summary;
     }
 }
 
@@ -315,6 +333,7 @@ impl EncounterRecord {
             last_raw,
             saw_active,
             frames,
+            lb_summary,
         } = active;
         let snapshots = frames.len() as u32;
         let raw_last = if let Some(frame) = frames.last() {
@@ -334,6 +353,7 @@ impl EncounterRecord {
             snapshots,
             saw_active,
             frames,
+            lb_summary,
         }
     }
 }
@@ -344,12 +364,14 @@ impl EncounterFrame {
         encounter: EncounterSummary,
         rows: Vec<CombatantRow>,
         raw: Value,
+        lb_summary: Option<LimitBreakSummary>,
     ) -> Self {
         Self {
             received_ms,
             encounter,
             rows,
             raw,
+            lb_summary,
         }
     }
 }

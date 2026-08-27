@@ -227,6 +227,7 @@ mod tests {
             snapshots: 1,
             saw_active: true,
             frames: Vec::new(),
+            lb_summary: None,
         }
     }
 

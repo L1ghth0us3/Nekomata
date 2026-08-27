@@ -35,6 +35,7 @@ Desktop.ini
 *.log
 debug.log
 *.orig
+.exampleData/
 
 # Temporary files
 *.tmp
