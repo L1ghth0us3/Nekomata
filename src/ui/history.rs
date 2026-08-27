@@ -505,7 +505,6 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot, list_stat
         list_items.push(ListItem::new(label));
     }
 
-    let mut list_state = ListState::default();
     if !list_items.is_empty() {
         list_state.select(Some(s.history.dungeon_selected_child));
     }
