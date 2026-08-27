@@ -9,7 +9,7 @@ use ratatui::Frame;
 
 use crate::model::{
     AppSnapshot, CombatantRow, DungeonPanelLevel, HistoryPanelLevel, HistoryView,
-    LimitBreakSummary, ViewMode, LIMIT_BREAK_MODE_PANEL, LIMIT_BREAK_MODE_TABLE,
+    LimitBreakSummary, LimitBreakMode, ViewMode,
 };
 use crate::theme::{accent_color, header_style, text_color, title_style, value_style};
 use crate::ui::{draw_table_with_context, TableRenderContext, LB_PANEL_HEIGHT};
@@ -336,8 +336,8 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
 
     let detail_mode = s.history.detail_mode;
     let mut sorted_rows = record.rows.clone();
-    let show_panel = s.settings.limit_break_mode == LIMIT_BREAK_MODE_PANEL;
-    let show_table_row = s.settings.limit_break_mode == LIMIT_BREAK_MODE_TABLE;
+    let show_panel = s.settings.limit_break_mode == LimitBreakMode::Panel;
+    let show_table_row = s.settings.limit_break_mode == LimitBreakMode::TableRow;
 
     if show_table_row && detail_mode == ViewMode::Dps {
         if let Some(lb) = record.lb_summary.as_ref() {
@@ -862,8 +862,8 @@ fn draw_dungeon_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     let detail_mode = s.history.detail_mode;
     let mut sorted_rows = encounter_record.rows.clone();
 
-    let show_panel = s.settings.limit_break_mode == LIMIT_BREAK_MODE_PANEL;
-    let show_table_row = s.settings.limit_break_mode == LIMIT_BREAK_MODE_TABLE;
+    let show_panel = s.settings.limit_break_mode == LimitBreakMode::Panel;
+    let show_table_row = s.settings.limit_break_mode == LimitBreakMode::TableRow;
 
     if show_table_row && detail_mode == ViewMode::Dps {
         if let Some(lb) = encounter_record.lb_summary.as_ref() {

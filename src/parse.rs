@@ -1,8 +1,9 @@
 use regex::Regex;
 use serde_json::{Map, Value};
 
+use crate::lb::parse_ability_damage;
 use crate::model::{
-    known_jobs, CombatantRow, EncounterSummary, LimitBreakCast, LimitBreakHit,
+    known_jobs, CombatantRow, EncounterSummary, LimitBreakCast,
 };
 
 const LB_ACTIONS: &[(&str, &str)] = &[
@@ -20,10 +21,60 @@ const LB_ACTIONS: &[(&str, &str)] = &[
     ("D3", "Teraflare"),
 ];
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ParsedLogLineEvent {
-    LimitBreakCast(LimitBreakCast),
-    LimitBreakHit(LimitBreakHit),
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedLimitBreakLine {
+    pub cast: LimitBreakCast,
+    pub target_id: String,
+    pub damage: u64,
+}
+
+pub fn parse_logline_for_lb(value: &Value) -> Option<ParsedLimitBreakLine> {
+    let root = value.as_object()?;
+    let type_str = root.get("type")?.as_str()?;
+    if !type_str.eq_ignore_ascii_case("LogLine") {
+        return None;
+    }
+    let line = logline_to_pipe_string(root)?;
+    let fields: Vec<&str> = line.split('|').collect();
+    if fields.is_empty() {
+        return None;
+    }
+
+    match fields[0] {
+        "21" | "22" => {
+            if fields.len() < 10 {
+                return None;
+            }
+            let source_id = fields[2].trim();
+            let source_name = fields[3].trim();
+            let action_id = fields[4].trim();
+            let action_name = fields[5].trim();
+            if !is_lb_action(action_id, action_name) {
+                return None;
+            }
+
+            let target_id = fields[6].trim().to_string();
+            let damage_hex = fields[9].trim();
+            let damage = parse_ability_damage(damage_hex);
+            let sequence = if fields.len() > 44 {
+                fields[44].trim().to_string()
+            } else {
+                String::new()
+            };
+
+            Some(ParsedLimitBreakLine {
+                cast: LimitBreakCast {
+                    source_id: source_id.to_string(),
+                    source_name: source_name.to_string(),
+                    action_id: upper(action_id),
+                    sequence,
+                },
+                target_id,
+                damage,
+            })
+        }
+        _ => None,
+    }
 }
 
 fn get_ci<'a>(obj: &'a Map<String, Value>, key: &str) -> Option<&'a Value> {
@@ -34,6 +85,35 @@ fn get_ci<'a>(obj: &'a Map<String, Value>, key: &str) -> Option<&'a Value> {
     obj.iter()
         .find(|(k, _)| k.to_lowercase() == lkey)
         .map(|(_, v)| v)
+}
+
+pub fn parse_combat_data(value: &Value) -> Option<(EncounterSummary, Vec<CombatantRow>)> {
+    let root = value.as_object()?;
+    if root.get("type")?.as_str()? != "CombatData" {
+        return None;
+    }
+
+    let encounter = parse_encounter(root);
+
+    let combatants = root
+        .get("Combatant")
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut rows = combatant_rows(&combatants);
+
+    compute_damage_shares(&mut rows, &combatants, encounter.damage.as_str());
+    compute_heal_shares(&mut rows, &combatants, encounter.healed.as_str());
+
+    rows.sort_by(|a, b| {
+        b.encdps
+            .partial_cmp(&a.encdps)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.name.cmp(&b.name))
+    });
+
+    Some((encounter, rows))
 }
 
 fn val_to_string(v: &Value) -> String {
@@ -103,113 +183,6 @@ fn logline_to_pipe_string(root: &Map<String, Value>) -> Option<String> {
         .or_else(|| root.get("rawline"))
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-}
-
-pub fn parse_logline_for_lb(value: &Value) -> Option<ParsedLogLineEvent> {
-    let root = value.as_object()?;
-    let type_str = root.get("type")?.as_str()?;
-    if !type_str.eq_ignore_ascii_case("LogLine") {
-        return None;
-    }
-    let line = logline_to_pipe_string(root)?;
-    let fields: Vec<&str> = line.split('|').collect();
-    if fields.is_empty() {
-        return None;
-    }
-
-    match fields[0] {
-        // Ability hit/cast line
-        "21" | "22" => {
-            if fields.len() < 6 {
-                return None;
-            }
-            let source_id = fields[2].trim();
-            let source_name = fields[3].trim();
-            let action_id = fields[4].trim();
-            let action_name = fields[5].trim();
-            if !is_lb_action(action_id, action_name) {
-                return None;
-            }
-
-            let sequence = if fields.len() > 44 {
-                fields[44].trim().to_string()
-            } else {
-                String::new()
-            };
-
-            let cast = LimitBreakCast {
-                source_id: source_id.to_string(),
-                source_name: source_name.to_string(),
-                action_id: upper(action_id),
-                sequence: sequence.clone(),
-            };
-            Some(ParsedLogLineEvent::LimitBreakCast(cast))
-        }
-        // Human-readable damage lines.
-        "00" => {
-            if fields.len() < 5 {
-                return None;
-            }
-            let msg = fields[4].trim();
-            let damage = parse_damage_from_message(msg)?;
-            Some(ParsedLogLineEvent::LimitBreakHit(LimitBreakHit {
-                source_id: String::new(),
-                action_id: String::new(),
-                sequence: String::new(),
-                damage,
-            }))
-        }
-        _ => None,
-    }
-}
-
-fn parse_damage_from_message(msg: &str) -> Option<u64> {
-    let lower = msg.to_ascii_lowercase();
-    if !lower.contains("damage") {
-        return None;
-    }
-    static TAKES: once_cell::sync::Lazy<Regex> =
-        once_cell::sync::Lazy::new(|| Regex::new(r"takes\s+([0-9,]+)").unwrap());
-    static FOR_DAMAGE: once_cell::sync::Lazy<Regex> =
-        once_cell::sync::Lazy::new(|| Regex::new(r"for\s+([0-9,]+)\s+damage").unwrap());
-    if let Some(c) = TAKES.captures(&lower) {
-        let n = c.get(1)?.as_str().replace(',', "");
-        return n.parse::<u64>().ok();
-    }
-    if let Some(c) = FOR_DAMAGE.captures(&lower) {
-        let n = c.get(1)?.as_str().replace(',', "");
-        return n.parse::<u64>().ok();
-    }
-    None
-}
-
-pub fn parse_combat_data(value: &Value) -> Option<(EncounterSummary, Vec<CombatantRow>)> {
-    let root = value.as_object()?;
-    if root.get("type")?.as_str()? != "CombatData" {
-        return None;
-    }
-
-    let encounter = parse_encounter(root);
-
-    let combatants = root
-        .get("Combatant")
-        .and_then(|v| v.as_object())
-        .cloned()
-        .unwrap_or_default();
-
-    let mut rows = combatant_rows(&combatants);
-
-    compute_damage_shares(&mut rows, &combatants, encounter.damage.as_str());
-    compute_heal_shares(&mut rows, &combatants, encounter.healed.as_str());
-
-    rows.sort_by(|a, b| {
-        b.encdps
-            .partial_cmp(&a.encdps)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.name.cmp(&b.name))
-    });
-
-    Some((encounter, rows))
 }
 
 fn parse_encounter(root: &Map<String, Value>) -> EncounterSummary {
@@ -510,48 +483,27 @@ mod tests {
     }
 
     #[test]
-    fn parses_lb_hit_from_logline() {
+    fn parses_lb_line_from_ability_log() {
         let cast = json!({
             "type": "LogLine",
             "line": "21|2026-03-18T11:48:46.8250000+01:00|106DA91E|Manjav Halle|C9|Bladedance|400092AE|Hermes|780003|13E64002|0|0|0|0|0|0|0|0|0|0|0|0|0|0|947227|3006560|10000|10000|||-0.02|-50.00|0.00|-1.69|42776|42776|8000|10000|||0.78|-45.33|0.00|-2.97|00003B7E|0|1|00||01|C9|C9|3.860|0710|1d5e56cf3d36fa0c"
         });
-        let hit = json!({
+        let chat = json!({
             "type": "LogLine",
-            "line": "00|2026-03-18T11:48:50.0990000+01:00|12A9||   Hermes takes 136166 damage.|62b05b15e42c0381"
+            "line": "00|2026-03-18T11:48:50.0990000+01:00|12A9||Hermes takes 136166 damage.|62b05b15e42c0381"
         });
 
-        let parsed_cast = parse_logline_for_lb(&cast).expect("expected lb event");
-        match parsed_cast {
-            ParsedLogLineEvent::LimitBreakCast(cast) => {
-                assert_eq!(cast.source_id, "106DA91E");
-                assert_eq!(cast.action_id, "C9");
-            }
-            ParsedLogLineEvent::LimitBreakHit(_) => panic!("expected cast"),
-        }
+        let parsed = parse_logline_for_lb(&cast).expect("expected lb ability line");
+        assert_eq!(parsed.cast.source_id, "106DA91E");
+        assert_eq!(parsed.cast.action_id, "C9");
+        assert_eq!(parsed.target_id, "400092AE");
+        assert_eq!(parsed.damage, 136166);
+        assert!(parse_logline_for_lb(&chat).is_none());
 
-        let parsed_hit = parse_logline_for_lb(&hit).expect("expected lb event");
-        match parsed_hit {
-            ParsedLogLineEvent::LimitBreakHit(hit) => {
-                assert_eq!(hit.damage, 136166);
-            }
-            ParsedLogLineEvent::LimitBreakCast(_) => panic!("expected hit"),
-        }
-
-        // OverlayPlugin often sends `line` as an array of fields, not a single string.
         let pipe = "21|2026-03-18T11:48:46.8250000+01:00|106DA91E|Manjav Halle|C9|Bladedance|400092AE|Hermes|780003|13E64002|0|0|0|0|0|0|0|0|0|0|0|0|0|0|947227|3006560|10000|10000|||-0.02|-50.00|0.00|-1.69|42776|42776|8000|10000|||0.78|-45.33|0.00|-2.97|00003B7E|0|1|00||01|C9|C9|3.860|0710|1d5e56cf3d36fa0c";
         let arr: Vec<serde_json::Value> = pipe.split('|').map(|s| json!(s)).collect();
         let array_payload = json!({ "type": "LogLine", "line": arr });
         let parsed_array = parse_logline_for_lb(&array_payload).expect("array line");
-        assert!(matches!(parsed_array, ParsedLogLineEvent::LimitBreakCast(_)));
-
-        let raw_payload = json!({
-            "type": "LogLine",
-            "rawLine": "00|2026-03-18T11:48:50.0990000+01:00|12A9||Hermes takes 136166 damage.|62b05b15e42c0381"
-        });
-        let parsed_raw = parse_logline_for_lb(&raw_payload).expect("rawLine");
-        match parsed_raw {
-            ParsedLogLineEvent::LimitBreakHit(h) => assert_eq!(h.damage, 136166),
-            ParsedLogLineEvent::LimitBreakCast(_) => panic!("expected hit from rawLine"),
-        }
+        assert_eq!(parsed_array.damage, 136166);
     }
 }

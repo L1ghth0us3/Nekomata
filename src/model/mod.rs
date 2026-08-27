@@ -7,12 +7,9 @@ mod types;
 mod view;
 
 pub use history_panel::{DungeonPanelLevel, HistoryPanel, HistoryPanelLevel, HistoryView};
-pub use settings::{
-    AppSettings, SettingsField, LIMIT_BREAK_MODE_PANEL, LIMIT_BREAK_MODE_TABLE,
-};
+pub use settings::{AppSettings, LimitBreakMode, SettingsField};
 pub use state::{AppSnapshot, AppState};
 pub use types::{
-    known_jobs, AppEvent, CombatantRow, EncounterSummary, LimitBreakCast, LimitBreakHit,
-    LimitBreakSummary,
+    known_jobs, AppEvent, CombatantRow, EncounterSummary, LimitBreakCast, LimitBreakSummary,
 };
 pub use view::{Decoration, IdleScene, ViewMode};

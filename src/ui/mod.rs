@@ -1,7 +1,8 @@
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::Frame;
 
-use crate::model::{AppSnapshot, LimitBreakSummary, ViewMode, LIMIT_BREAK_MODE_PANEL, LIMIT_BREAK_MODE_TABLE};
+use crate::history::util::{parse_duration_secs, parse_number};
+use crate::model::{AppSnapshot, LimitBreakMode, LimitBreakSummary, ViewMode};
 use crate::{ui_history, ui_idle};
 
 mod header;
@@ -18,8 +19,8 @@ pub fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
         return;
     }
 
-    let show_panel = snapshot.settings.limit_break_mode == LIMIT_BREAK_MODE_PANEL;
-    let show_table_row = snapshot.settings.limit_break_mode == LIMIT_BREAK_MODE_TABLE;
+    let show_panel = snapshot.settings.limit_break_mode == LimitBreakMode::Panel;
+    let show_table_row = snapshot.settings.limit_break_mode == LimitBreakMode::TableRow;
     let constraints = if show_panel {
         vec![
             Constraint::Length(3),
@@ -79,10 +80,6 @@ pub fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     }
 }
 
-fn parse_number(s: &str) -> f64 {
-    s.replace(',', "").parse::<f64>().unwrap_or(0.0)
-}
-
 fn format_number(value: f64) -> String {
     if value.abs() >= 1000.0 {
         format!("{:.0}", value)
@@ -108,11 +105,20 @@ fn build_lb_table_rows(snapshot: &AppSnapshot, lb: &LimitBreakSummary) -> Vec<cr
         0.0
     };
 
+    let duration_secs = snapshot
+        .encounter
+        .as_ref()
+        .and_then(|e| parse_duration_secs(&e.duration))
+        .filter(|secs| *secs > 0)
+        .map(|secs| secs as f64)
+        .unwrap_or(1.0);
+    let encdps = damage / duration_secs;
+
     let lb_row = crate::model::CombatantRow {
         name: "Limit Break".to_string(),
         job: "LB".to_string(),
-        encdps: damage,
-        encdps_str: format_number(damage),
+        encdps,
+        encdps_str: format_number(encdps),
         damage,
         damage_str: format_number(damage),
         share,

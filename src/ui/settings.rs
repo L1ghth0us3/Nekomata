@@ -3,7 +3,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
-use crate::model::{AppSnapshot, SettingsField};
+use crate::model::{AppSnapshot, LimitBreakMode, SettingsField};
 use crate::theme::{header_style, theme_registry, title_style, value_style};
 
 pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
@@ -153,13 +153,8 @@ fn current_theme_name(theme_id: &str) -> String {
     }
 }
 
-fn limit_break_mode_label(mode: u8) -> String {
-    match mode {
-        0 => "OFF".to_string(),
-        1 => "PANEL".to_string(),
-        2 => "TABLE".to_string(),
-        _ => "OFF".to_string(),
-    }
+fn limit_break_mode_label(mode: LimitBreakMode) -> String {
+    mode.label().to_string()
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {

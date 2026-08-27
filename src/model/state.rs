@@ -8,7 +8,7 @@ use crate::theme;
 
 use super::{
     AppEvent, AppSettings, CombatantRow, Decoration, DungeonPanelLevel, EncounterSummary,
-    HistoryPanel, HistoryPanelLevel, HistoryView, IdleScene, LimitBreakCast, LimitBreakSummary,
+    HistoryPanel, HistoryPanelLevel, HistoryView, IdleScene, LimitBreakSummary,
     SettingsField, ViewMode,
 };
 
@@ -52,7 +52,6 @@ pub struct AppState {
     pub error: Option<AppError>,
     pub dungeon_active_zone: Option<String>,
     pub lb_summary: Option<LimitBreakSummary>,
-    pending_lb_cast: Option<LimitBreakCast>,
 }
 
 impl Default for AppState {
@@ -76,7 +75,6 @@ impl Default for AppState {
             error: None,
             dungeon_active_zone: None,
             lb_summary: None,
-            pending_lb_cast: None,
         }
     }
 }
@@ -112,13 +110,8 @@ impl AppState {
             }
             AppEvent::CombatData { encounter, rows } => {
                 let now = Instant::now();
-                let should_reset_lb = self.should_reset_lb_for(&encounter);
                 self.encounter = Some(encounter);
                 self.rows = rows;
-                if should_reset_lb {
-                    self.lb_summary = None;
-                    self.pending_lb_cast = None;
-                }
                 self.resort_rows();
                 self.last_update = Some(now);
                 self.idle_scene = IdleScene::Status;
@@ -131,26 +124,8 @@ impl AppState {
                     self.last_active = Some(now);
                 }
             }
-            AppEvent::LimitBreakCast { cast } => {
-                self.pending_lb_cast = Some(cast.clone());
-                // Show the box as soon as the LB cast line is seen; damage updates on hit lines.
-                self.lb_summary = Some(LimitBreakSummary {
-                    user: cast.source_name,
-                    damage: 0,
-                });
-            }
-            AppEvent::LimitBreakHit { hit } => {
-                if let Some(cast) = self.pending_lb_cast.as_ref() {
-                    let strict_match = !hit.source_id.is_empty() && !hit.action_id.is_empty();
-                    if strict_match && (cast.source_id != hit.source_id || cast.action_id != hit.action_id) {
-                        return;
-                    }
-                    let summary = self.lb_summary.get_or_insert_with(|| LimitBreakSummary {
-                        user: cast.source_name.clone(),
-                        damage: 0,
-                    });
-                    summary.damage = summary.damage.saturating_add(hit.damage);
-                }
+            AppEvent::LimitBreakUpdate { summary } => {
+                self.lb_summary = summary;
             }
             AppEvent::HistoryDatesLoaded { days } => {
                 self.history.loading = false;
@@ -339,35 +314,6 @@ impl AppState {
         false
     }
 
-    fn should_reset_lb_for(&self, next: &EncounterSummary) -> bool {
-        let Some(prev) = self.encounter.as_ref() else {
-            return !next.is_active;
-        };
-        if !next.is_active {
-            return false;
-        }
-        if !prev.is_active {
-            return true;
-        }
-
-        fn parse_duration_seconds(s: &str) -> Option<u64> {
-            let mut it = s.split(':');
-            let m = it.next()?.parse::<u64>().ok()?;
-            let sec = it.next()?.parse::<u64>().ok()?;
-            Some(m.saturating_mul(60).saturating_add(sec))
-        }
-
-        let prev_secs = parse_duration_seconds(&prev.duration).unwrap_or(0);
-        let next_secs = parse_duration_seconds(&next.duration).unwrap_or(0);
-        if next_secs + 2 < prev_secs {
-            return true;
-        }
-
-        let prev_damage = prev.damage.replace(',', "").parse::<f64>().unwrap_or(0.0);
-        let next_damage = next.damage.replace(',', "").parse::<f64>().unwrap_or(0.0);
-        next_damage + 1.0 < prev_damage
-    }
-
     pub fn apply_settings(&mut self, settings: AppSettings) {
         self.settings = settings;
         // Apply theme selection and role theme toggle.
@@ -407,35 +353,17 @@ impl AppState {
                 changed
             }
             SettingsField::DungeonMode => {
-                let before = self.settings.dungeon_mode_enabled;
-                let after = if forward { !before } else { !before };
-                if after != before {
-                    self.settings.dungeon_mode_enabled = after;
-                    true
-                } else {
-                    false
-                }
+                self.settings.dungeon_mode_enabled = !self.settings.dungeon_mode_enabled;
+                true
             }
             SettingsField::LimitBreakMode => {
                 let before = self.settings.limit_break_mode;
-                let next = if forward {
-                    (before + 1) % 3
+                self.settings.limit_break_mode = if forward {
+                    before.next()
                 } else {
-                    before.saturating_sub(1)
+                    before.prev()
                 };
-                let after = if forward {
-                    next
-                } else if before == 0 {
-                    2
-                } else {
-                    next
-                };
-                if after != before {
-                    self.settings.limit_break_mode = after;
-                    true
-                } else {
-                    false
-                }
+                before != self.settings.limit_break_mode
             }
             SettingsField::Theme => {
                 // Cycle through themes from the registry.

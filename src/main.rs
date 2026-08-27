@@ -22,6 +22,7 @@ mod config;
 mod dungeon;
 mod errors;
 mod history;
+mod lb;
 mod model;
 mod parse;
 mod theme;

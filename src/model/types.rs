@@ -57,14 +57,6 @@ pub struct LimitBreakCast {
     pub sequence: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LimitBreakHit {
-    pub source_id: String,
-    pub action_id: String,
-    pub sequence: String,
-    pub damage: u64,
-}
-
 #[derive(Debug)]
 pub enum AppEvent {
     Connected,
@@ -73,11 +65,8 @@ pub enum AppEvent {
         encounter: EncounterSummary,
         rows: Vec<CombatantRow>,
     },
-    LimitBreakCast {
-        cast: LimitBreakCast,
-    },
-    LimitBreakHit {
-        hit: LimitBreakHit,
+    LimitBreakUpdate {
+        summary: Option<LimitBreakSummary>,
     },
     HistoryDatesLoaded {
         days: Vec<HistoryDay>,
