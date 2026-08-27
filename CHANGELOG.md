@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is inspired by Keep a Changelog and uses calendar dates (YYYY‑MM‑DD).
 
+## [0.5.0] - 2026-08-27
+
+Highlights
+- **File-based themes**: the TUI loads `.theme` TOML palettes from a `themes/` folder next to the binary (falls back to a built-in Synth Wave palette when none are found).
+- **Bundled presets**: Synth Wave (default), Abyss Protocol, Catppuccin Latte, Catppuccin Mocha, Gruvbox Retro, and Tokyo Night.
+- **Role-color toggle**: settings can keep the classic xterm-256 tank/healer/DPS meter colors or use the active theme's role colors.
+- **Limit Break tracking**: parses ability lines so LB damage and caster can be shown as a dedicated panel, as a DPS table row, or hidden.
+- **Prebuilt binaries**: GitHub Releases now ship Linux (`x86_64-unknown-linux-gnu`) and Windows (`x86_64-pc-windows-msvc`) archives that include the `themes/` folder.
+
+This tagged release also includes the untagged 0.4.0 work that was already on `main` (idle-while-disconnected, pre-job classes). See the 0.4.0 section below.
+
+Settings & config
+- New settings fields: Limit break display (`Off` / `PanelAlways` / `TableRow`), Theme, and Change role specific colors.
+- Config keys `theme_id`, `role_theme_enabled`, and `limit_break_mode` persist across restarts. Older `show_limit_break` values are migrated (`true` → panel, `false` → off).
+
+Controls
+- Settings pane (`s`): `↑/↓` still move the selection; `←/→` cycle theme, role colors, and LB display in addition to the existing options.
+- History panel: `Tab` (or `t`) switches between encounter history and dungeon-run history.
+
+Architecture
+- History loading moved into a dedicated `history/loader` task path; encounter detail rendering is shared between live and history views.
+- UI modules live under `src/ui/` (`history`, `idle`, `lb`, `encounter_detail`).
+- Limit Break uses a single tracker that attributes multi-target ability-line damage.
+
+Distribution
+- `themes/` must sit next to the executable. Prebuilt archives package it that way; `cargo run` from the repo root uses `./themes`.
+- Dungeon catalog remains embedded in the binary (`NEKOMATA_DUNGEON_CATALOG` still overrides it).
+
+Bug fixes
+- Corrected the Synth Wave DRG hex color (`#8CA0FF`) so Dragoon job tint loads from the theme file.
+
 ## [0.4.0] - 2025-12-27
 
 Highlights

@@ -8,7 +8,9 @@ use ratatui::Frame;
 
 use crate::errors::AppError;
 use crate::model::AppSnapshot;
-use crate::theme::{header_style, status_disconnected_color, status_idle_color, title_style, value_style};
+use crate::theme::{
+    header_style, status_disconnected_color, status_idle_color, title_style, value_style,
+};
 
 pub(super) fn draw(f: &mut Frame, area: ratatui::layout::Rect, snapshot: &AppSnapshot) {
     let (status_text, status_style) = status_label(snapshot);
@@ -64,12 +66,21 @@ pub(super) fn draw_error(f: &mut Frame, area: ratatui::layout::Rect, error: &App
 fn status_label(snapshot: &AppSnapshot) -> (Cow<'static, str>, Style) {
     if !snapshot.connected {
         if snapshot.is_idle {
-            (Cow::Borrowed("Disconnected (idle)"), Style::default().fg(status_idle_color()))
+            (
+                Cow::Borrowed("Disconnected (idle)"),
+                Style::default().fg(status_idle_color()),
+            )
         } else {
-            (Cow::Borrowed("Disconnected"), Style::default().fg(status_disconnected_color()))
+            (
+                Cow::Borrowed("Disconnected"),
+                Style::default().fg(status_disconnected_color()),
+            )
         }
     } else if snapshot.is_idle {
-        (Cow::Borrowed("Connected (idle)"), Style::default().fg(status_idle_color()))
+        (
+            Cow::Borrowed("Connected (idle)"),
+            Style::default().fg(status_idle_color()),
+        )
     } else {
         (Cow::Borrowed("Connected"), value_style())
     }

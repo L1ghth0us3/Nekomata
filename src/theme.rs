@@ -70,10 +70,10 @@ impl Theme {
 
         Theme {
             name: "Synth Wave".to_string(),
-            accent: Color::Rgb(200, 60, 255),          // neon purple
-            accent_2: Color::Rgb(0, 255, 200),         // neon cyan-green
+            accent: Color::Rgb(200, 60, 255),  // neon purple
+            accent_2: Color::Rgb(0, 255, 200), // neon cyan-green
             text: Color::Rgb(220, 210, 230),
-            status_idle: Color::Rgb(205, 102, 0),      // dark orange
+            status_idle: Color::Rgb(205, 102, 0), // dark orange
             status_disconnected: Color::Rgb(220, 60, 60), // bright red
             // Role meter colors currently match the legacy xterm indices.
             tank_color: Color::Indexed(75),
@@ -84,10 +84,7 @@ impl Theme {
     }
 
     pub fn job_color(&self, job: &str) -> Color {
-        self.job_colors
-            .get(job)
-            .copied()
-            .unwrap_or(self.accent)
+        self.job_colors.get(job).copied().unwrap_or(self.accent)
     }
 
     pub fn role_bar_color(&self, job: &str) -> Color {
@@ -171,10 +168,6 @@ pub fn set_role_theme_enabled(enabled: bool) {
 
 pub fn accent_color() -> Color {
     active_theme().accent
-}
-
-pub fn accent2_color() -> Color {
-    active_theme().accent_2
 }
 
 // Gradient helpers removed; we use solid role colors for bars.
@@ -330,6 +323,7 @@ struct FileThemeMeta {
     #[serde(default)]
     name: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     description: Option<String>,
 }
 
@@ -353,16 +347,16 @@ struct FileThemeRoles {
 fn load_theme_file(id: &str, path: &Path) -> Result<Theme, String> {
     let data = fs::read(path)
         .map_err(|err| format!("failed to read theme file {}: {err}", path.display()))?;
-    let text = String::from_utf8(data)
-        .map_err(|err| format!("failed to read theme file {} as UTF-8: {err}", path.display()))?;
+    let text = String::from_utf8(data).map_err(|err| {
+        format!(
+            "failed to read theme file {} as UTF-8: {err}",
+            path.display()
+        )
+    })?;
     let parsed: FileTheme = toml::from_str(&text)
         .map_err(|err| format!("failed to parse theme TOML {}: {err}", path.display()))?;
 
-    let name = parsed
-        .meta
-        .name
-        .clone()
-        .unwrap_or_else(|| id.to_string());
+    let name = parsed.meta.name.clone().unwrap_or_else(|| id.to_string());
 
     let accent = parse_hex_color(&parsed.palette.accent)
         .ok_or_else(|| format!("invalid accent color in {}", path.display()))?;

@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_id: linux-x86_64
+            binary: nekomata
+            pack: tar
+          - os: windows-latest
+            artifact_id: windows-x86_64
+            binary: nekomata.exe
+            pack: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Package (Linux)
+        if: matrix.pack == 'tar'
+        run: |
+          set -euo pipefail
+          asset="nekomata-${GITHUB_REF_NAME}-${{ matrix.artifact_id }}"
+          mkdir -p "dist/${asset}"
+          cp "target/release/${{ matrix.binary }}" "dist/${asset}/"
+          strip "dist/${asset}/${{ matrix.binary }}" || true
+          cp -r themes "dist/${asset}/"
+          cp README.md CHANGELOG.md "dist/${asset}/"
+          tar -C dist -czf "${asset}.tar.gz" "${asset}"
+          echo "ASSET_FILE=${asset}.tar.gz" >> "$GITHUB_ENV"
+      - name: Package (Windows)
+        if: matrix.pack == 'zip'
+        shell: pwsh
+        run: |
+          $asset = "nekomata-$env:GITHUB_REF_NAME-${{ matrix.artifact_id }}"
+          New-Item -ItemType Directory -Force -Path "dist/$asset" | Out-Null
+          Copy-Item "target/release/${{ matrix.binary }}" "dist/$asset/"
+          Copy-Item -Recurse themes "dist/$asset/"
+          Copy-Item README.md, CHANGELOG.md "dist/$asset/"
+          Compress-Archive -Path "dist/$asset" -DestinationPath "$asset.zip"
+          "ASSET_FILE=$asset.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_id }}
+          path: ${{ env.ASSET_FILE }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/*
+          body: |
+            Prebuilt archives include the `themes/` folder next to the binary — keep them together after extracting.
+
+            - Linux x86_64 (glibc): `nekomata-<tag>-linux-x86_64.tar.gz`
+            - Windows x86_64 (MSVC): `nekomata-<tag>-windows-x86_64.zip`
+
+            See [CHANGELOG.md](https://github.com/L1ghth0us3/iinact-tui/blob/main/CHANGELOG.md) for the full v0.5.0 notes.

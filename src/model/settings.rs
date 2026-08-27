@@ -129,9 +129,13 @@ impl AppSettings {
 impl From<AppConfig> for AppSettings {
     fn from(value: AppConfig) -> Self {
         let limit_break_mode = value.limit_break_mode.or_else(|| {
-            value
-                .show_limit_break
-                .map(|b| if b { LimitBreakMode::Panel.as_u8() } else { LimitBreakMode::Off.as_u8() })
+            value.show_limit_break.map(|b| {
+                if b {
+                    LimitBreakMode::Panel.as_u8()
+                } else {
+                    LimitBreakMode::Off.as_u8()
+                }
+            })
         });
         let limit_break_mode =
             LimitBreakMode::from_u8(limit_break_mode.unwrap_or(LimitBreakMode::Panel.as_u8()));

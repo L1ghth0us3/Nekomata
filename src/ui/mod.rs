@@ -31,7 +31,11 @@ pub fn draw(f: &mut Frame, snapshot: &AppSnapshot, list_state: &mut ListState) -
             Constraint::Length(1),
         ]
     } else {
-        vec![Constraint::Length(3), Constraint::Min(4), Constraint::Length(1)]
+        vec![
+            Constraint::Length(3),
+            Constraint::Min(4),
+            Constraint::Length(1),
+        ]
     };
     let chunks = Layout::default()
         .direction(Direction::Vertical)

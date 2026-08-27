@@ -5,12 +5,11 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::task;
 
 use crate::history::HistoryStore;
-use crate::model::{
-    AppEvent, AppState, DungeonPanelLevel, HistoryPanelLevel, HistoryView,
-};
+use crate::model::{AppEvent, AppState, DungeonPanelLevel, HistoryPanelLevel, HistoryView};
 
 pub const HISTORY_LIST_OFFSET: u16 = 4;
 
+#[allow(clippy::enum_variant_names)]
 pub enum HistoryTask {
     LoadEncounters { date_id: String },
     LoadEncounterDetail { key: Vec<u8> },
@@ -234,7 +233,10 @@ pub fn spawn_history_task(
                 store,
                 tx,
                 move |store| store.load_encounter_summaries(&date_for_load),
-                move |encounters| AppEvent::HistoryEncountersLoaded { date_id, encounters },
+                move |encounters| AppEvent::HistoryEncountersLoaded {
+                    date_id,
+                    encounters,
+                },
                 |message| AppEvent::HistoryError { message },
             )
         }

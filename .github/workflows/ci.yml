@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, '0.2-dev', '**' ]
+    branches: ['**']
   pull_request:
-    branches: [ main, '0.2-dev' ]
+    branches: [main]
 
 jobs:
   rust:
@@ -19,8 +19,8 @@ jobs:
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --locked -- -D warnings
       - name: test
-        run: cargo test --verbose
+        run: cargo test --locked --verbose
       - name: build
-        run: cargo build --verbose
+        run: cargo build --locked --verbose

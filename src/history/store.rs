@@ -361,7 +361,7 @@ impl HistoryStore {
             }
         }
 
-        summaries.sort_by(|a, b| b.last_seen_ms.cmp(&a.last_seen_ms));
+        summaries.sort_by_key(|b| std::cmp::Reverse(b.last_seen_ms));
 
         Ok(build_history_items_from_summaries(summaries))
     }
@@ -392,7 +392,7 @@ impl HistoryStore {
             }
         }
 
-        summaries.sort_by(|a, b| b.last_seen_ms.cmp(&a.last_seen_ms));
+        summaries.sort_by_key(|b| std::cmp::Reverse(b.last_seen_ms));
         Ok(build_dungeon_history_items(summaries))
     }
 

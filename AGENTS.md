@@ -54,7 +54,7 @@ Notes:
 - Subscribes to `CombatData` and `LogLine` events
 - Maintains live encounter state and renders a kagerou-style table using ratatui
 - Implements encounter history persistence with sled-backed storage
-- Provides a full-featured TUI with settings, history panel, and dungeon mode
+- Provides a full-featured TUI with settings, history panel, dungeon mode, file-based themes, and Limit Break display
 
 See the README.md for build and run instructions.
 
@@ -69,31 +69,37 @@ See the README.md for build and run instructions.
 - Track encounter activity timestamps so the UI can surface an idle state when no fights are active for the configured timeout.
 - Surface user-facing settings through a modal pane and persist them to disk so inputs survive restarts.
 
-### Current TUI Behavior (v0.3.0)
+### Current TUI Behavior (v0.5.0)
 - Rendering
   - Table columns: Name, Share%, ENCDPS, Job, Crit%, DH%, Deaths (numeric columns are right‑aligned). On narrow widths, Share% survives longer than ENCDPS/Job.
   - Responsive breakpoints hide columns at narrow widths (down to Name‑only).
   - Header: line 1 shows Encounter/Zone; line 2 shows Dur | ENCDPS | Damage; a dim gray separator appears under the table header.
-  - Party‑only rows using a known job set; case‑insensitive key lookup.
+  - Party‑only rows using a known job set (including pre-jobs); case‑insensitive key lookup.
 - Decorations (pluggable)
   - `Decor: underline` (default): two-line rows with a thin role-colored bar directly under each entry.
   - `Decor: background`: one-line rows with a role-colored background meter behind each entry.
   - `Decor: none`: no additional row decoration; compact one-line rows.
   - Cycle key: `d`.
+- Themes
+  - `.theme` TOML files are loaded from `<exe>/themes/` at startup (fallback: built-in Synth Wave).
+  - Settings can cycle the active theme and optionally keep legacy xterm-256 role meter colors.
+- Limit Break
+  - Ability-line tracker exposes caster + damage.
+  - Display modes: dedicated panel, DPS table row, or off.
 - Modes & status
   - `m` toggles between DPS and healing views.
-  - Idle indicator flips the footer to “Connected (idle)” after the configured timeout; disconnected shows red.
+  - Idle indicator flips the footer to “Connected (idle)” or “Disconnected (idle)” after the configured timeout; disconnected shows red.
 - Settings & persistence
   - `s` opens a modal settings pane; `↑/↓` moves the selection, `←/→` adjusts the highlighted value.
-  - Idle timeout accepts `0` to disable idle mode; defaults for decoration and opening mode are configured here and persist to disk.
+  - Idle timeout accepts `0` to disable idle mode; decoration, opening mode, dungeon mode, LB display, theme, and role-color toggle persist to disk.
   - Settings persist to `~/.config/nekomata/nekomata.config` (override with `NEKOMATA_CONFIG_DIR`; Windows uses `%APPDATA%\nekomata`).
 - Dungeon Mode
   - Toggleable mode that aggregates encounters into single dungeon runs while preserving individual encounter details.
   - `Shift-D` manually cuts off a dungeon run and saves it.
-  - Dungeon catalog defines zones and bosses for automatic aggregation.
+  - Dungeon catalog is embedded (override with `NEKOMATA_DUNGEON_CATALOG`).
 - Styling
   - Foreground-only for normal widgets to preserve terminal blur/transparency. Background is used only for the meter fill.
-- Role colors (xterm-256): tank=75, healer=41, dps=124; job name text uses per-job colors.
+- Role colors: theme `[roles]` when enabled; otherwise tank=75, healer=41, dps=124. Job name text uses per-job colors from the active theme.
 
 ## Encounter History (sled-backed)
 - Storage lives under the same config root, inside `history/encounters.sled`; override via `NEKOMATA_CONFIG_DIR` like the main config file.
@@ -101,4 +107,4 @@ See the README.md for build and run instructions.
 - `spawn_recorder` starts a background task fed by `RecorderHandle`; push snapshots with `record_components(encounter, rows, raw_json)` and call `flush()` when tearing down connections.
 - Records capture first/last seen timestamps, the final encounter summary, combatant rows, and the last raw JSON payload. Empty passive snapshots are skipped to avoid noise.
 - The interface exposes helpers (`remove`, `tree`, `HistoryKey::prefix`) to make adding/removing sled namespaces straightforward for future features.
-- TUI access: hit `h` to enter the history panel. The first view lists dates; `↑/↓` or mouse scroll move the selection, and `Enter`/left-click drill into the encounter list. Press `Enter` again to open the encounter detail pane, use `←` to back out, and `h`/`Esc` to exit entirely.
+- TUI access: hit `h` to enter the history panel. `Tab`/`t` switches between encounter history and dungeon-run history. The first view lists dates; `↑/↓` or mouse scroll move the selection, and `Enter`/left-click drill into the list. Press `Enter` again to open the detail pane, use `←` to back out, and `h`/`Esc` to exit entirely.

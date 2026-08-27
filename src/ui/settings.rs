@@ -86,7 +86,7 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     // Calculate content height (lines + block borders)
     let content_height = lines.len() as u16 + 2; // +2 for top and bottom borders
     let available_height = area.height;
-    
+
     // Center the content vertically
     let top_padding = if available_height > content_height {
         (available_height - content_height) / 2
@@ -98,7 +98,7 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     } else {
         0
     };
-    
+
     let vertical_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -107,7 +107,7 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
             Constraint::Length(bottom_padding),
         ])
         .split(area);
-    
+
     let content_area = vertical_layout[1];
 
     let block = Block::default()

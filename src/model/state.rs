@@ -8,8 +8,7 @@ use crate::theme;
 
 use super::{
     AppEvent, AppSettings, CombatantRow, Decoration, DungeonPanelLevel, EncounterSummary,
-    HistoryPanel, HistoryPanelLevel, IdleScene, LimitBreakSummary,
-    SettingsField, ViewMode,
+    HistoryPanel, HistoryPanelLevel, IdleScene, LimitBreakSummary, SettingsField, ViewMode,
 };
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -280,7 +279,7 @@ impl AppState {
         let Some(threshold) = self.settings.idle_duration() else {
             return false;
         };
-        
+
         if !self.connected {
             // When disconnected, check if we've been disconnected long enough
             if let Some(disconnected) = self.disconnected_since {
@@ -289,7 +288,7 @@ impl AppState {
             // If we don't have a disconnected timestamp yet, we're not idle
             return false;
         }
-        
+
         // When connected, check for active encounters
         if self
             .encounter
@@ -299,7 +298,7 @@ impl AppState {
         {
             return false;
         }
-        
+
         // Check time since last active encounter
         if let Some(active) = self.last_active {
             if now.saturating_duration_since(active) >= threshold {
@@ -307,12 +306,12 @@ impl AppState {
             }
             return false;
         }
-        
+
         // Check time since connection
         if let Some(since) = self.connected_since {
             return now.saturating_duration_since(since) >= threshold;
         }
-        
+
         false
     }
 

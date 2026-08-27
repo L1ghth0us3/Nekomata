@@ -2,9 +2,7 @@ use regex::Regex;
 use serde_json::{Map, Value};
 
 use crate::lb::parse_ability_damage;
-use crate::model::{
-    known_jobs, CombatantRow, EncounterSummary, LimitBreakCast,
-};
+use crate::model::{known_jobs, CombatantRow, EncounterSummary, LimitBreakCast};
 
 const LB_ACTIONS: &[(&str, &str)] = &[
     ("C8", "Braver"),

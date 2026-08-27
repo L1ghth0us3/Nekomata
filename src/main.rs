@@ -29,11 +29,8 @@ mod ws_client;
 
 use history::{
     determine_history_task, handle_history_mouse, spawn_history_task, spawn_initial_history_loads,
-    HistoryStore,
 };
-use model::{
-    AppEvent, AppSettings, AppState, SettingsField, WS_URL_DEFAULT,
-};
+use model::{AppEvent, AppSettings, AppState, SettingsField, WS_URL_DEFAULT};
 use tracing::level_filters::LevelFilter;
 use tracing::warn;
 
@@ -371,4 +368,3 @@ fn init_tracing(cli: &CliArgs) -> Result<()> {
 
     Ok(())
 }
-

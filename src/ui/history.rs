@@ -6,9 +6,7 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragra
 use ratatui::Frame;
 
 use crate::history::util::{format_duration_label, format_number};
-use crate::model::{
-    AppSnapshot, DungeonPanelLevel, HistoryPanelLevel, HistoryView, ViewMode,
-};
+use crate::model::{AppSnapshot, DungeonPanelLevel, HistoryPanelLevel, HistoryView, ViewMode};
 use crate::theme::{accent_color, header_style, text_color, title_style, value_style};
 use crate::ui::{draw_encounter_record, EncounterDetailParams};
 

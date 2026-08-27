@@ -51,9 +51,8 @@ pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: Recorde
                                 if let Some((enc, rows)) = parse_combat_data(&val) {
                                     if should_reset_lb(prev_encounter.as_ref(), &enc) {
                                         lb_tracker.reset();
-                                        let _ = tx.send(AppEvent::LimitBreakUpdate {
-                                            summary: None,
-                                        });
+                                        let _ =
+                                            tx.send(AppEvent::LimitBreakUpdate { summary: None });
                                     }
                                     let lb_summary = lb_tracker.summary();
                                     history.record_components(
