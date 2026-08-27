@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
+use std::sync::Arc;
+
 use crate::errors::AppError;
 use crate::history::{
     DungeonAggregateRecord, DungeonHistoryDay, DungeonHistoryItem, EncounterRecord, HistoryDay,
@@ -77,7 +79,7 @@ pub enum AppEvent {
     },
     HistoryEncounterLoaded {
         key: Vec<u8>,
-        record: EncounterRecord,
+        record: Arc<EncounterRecord>,
     },
     DungeonDatesLoaded {
         days: Vec<DungeonHistoryDay>,
@@ -92,7 +94,7 @@ pub enum AppEvent {
     },
     DungeonEncounterLoaded {
         key: Vec<u8>,
-        record: EncounterRecord,
+        record: Arc<EncounterRecord>,
     },
     DungeonSessionUpdate {
         active_zone: Option<String>,

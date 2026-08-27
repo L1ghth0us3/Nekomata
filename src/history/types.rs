@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -129,8 +130,8 @@ pub struct HistoryEncounterItem {
     pub time_label: String,
     pub last_seen_ms: u64,
     pub timestamp_label: String,
-    #[serde(default)]
-    pub record: Option<EncounterRecord>,
+    #[serde(default, skip)]
+    pub record: Option<Arc<EncounterRecord>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -195,8 +196,8 @@ pub struct DungeonHistoryItem {
     pub party_signature: Vec<String>,
     #[serde(default)]
     pub record: Option<DungeonAggregateRecord>,
-    #[serde(default, skip_serializing, skip_deserializing)]
-    pub child_records: Vec<Option<EncounterRecord>>,
+    #[serde(default, skip)]
+    pub child_records: Vec<Option<Arc<EncounterRecord>>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

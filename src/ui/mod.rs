@@ -1,11 +1,13 @@
 use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::widgets::ListState;
 use ratatui::Frame;
 
 use crate::model::{AppSnapshot, LimitBreakMode, LimitBreakSummary, ViewMode};
-use crate::{ui_history, ui_idle};
 
 mod encounter_detail;
 mod header;
+mod history;
+mod idle;
 mod lb;
 pub(crate) use encounter_detail::{draw_encounter_record, EncounterDetailParams};
 pub(crate) use lb::LB_PANEL_HEIGHT;
@@ -14,10 +16,9 @@ mod status;
 mod table;
 pub(crate) use table::{draw_with_context as draw_table_with_context, TableRenderContext};
 
-pub fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
+pub fn draw(f: &mut Frame, snapshot: &AppSnapshot, list_state: &mut ListState) -> usize {
     if snapshot.history.visible {
-        ui_history::draw_history(f, snapshot);
-        return;
+        return history::draw_history(f, snapshot, list_state);
     }
 
     let show_panel = snapshot.settings.limit_break_mode == LimitBreakMode::Panel;
@@ -41,7 +42,7 @@ pub fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
 
     let mut snap_for_table;
     let snap_ref: &AppSnapshot = if snapshot.is_idle && snapshot.show_idle_overlay {
-        ui_idle::draw_idle(f, chunks[1], snapshot);
+        idle::draw_idle(f, chunks[1], snapshot);
         snapshot
     } else {
         snap_for_table = snapshot.clone();
@@ -83,4 +84,6 @@ pub fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     if snapshot.show_settings {
         settings::draw(f, snapshot);
     }
+
+    0
 }

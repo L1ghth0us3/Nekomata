@@ -504,7 +504,7 @@ fn build_history_items_from_summaries(
 
     let mut occurrence_by_key: HashMap<Vec<u8>, u32> = HashMap::new();
     for entries in chronological.values_mut() {
-        entries.sort_by(|a, b| a.0.cmp(&b.0));
+        entries.sort_by_key(|a| a.0);
         for (idx, (_, key)) in entries.iter().enumerate() {
             occurrence_by_key.insert(key.clone(), (idx + 1) as u32);
         }

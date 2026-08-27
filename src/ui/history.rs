@@ -12,7 +12,7 @@ use crate::model::{
 use crate::theme::{accent_color, header_style, text_color, title_style, value_style};
 use crate::ui::{draw_encounter_record, EncounterDetailParams};
 
-pub fn draw_history(f: &mut Frame, s: &AppSnapshot) {
+pub fn draw_history(f: &mut Frame, s: &AppSnapshot, list_state: &mut ListState) -> usize {
     let area = f.size();
     f.render_widget(Clear, area);
 
@@ -23,7 +23,8 @@ pub fn draw_history(f: &mut Frame, s: &AppSnapshot) {
         .split(area);
 
     draw_header(f, chunks[0], s);
-    draw_body(f, chunks[1], s);
+    draw_body(f, chunks[1], s, list_state);
+    list_state.offset()
 }
 
 fn draw_header(f: &mut Frame, area: Rect, s: &AppSnapshot) {
@@ -86,7 +87,7 @@ fn draw_header(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     f.render_widget(block, area);
 }
 
-fn draw_body(f: &mut Frame, area: Rect, s: &AppSnapshot) {
+fn draw_body(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &mut ListState) {
     if let Some(err) = &s.history.error {
         let block = Paragraph::new(err.as_str())
             .alignment(ratatui::layout::Alignment::Left)
@@ -115,8 +116,8 @@ fn draw_body(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 return;
             }
             match s.history.level {
-                HistoryPanelLevel::Dates => draw_dates(f, area, s),
-                HistoryPanelLevel::Encounters => draw_encounters(f, area, s),
+                HistoryPanelLevel::Dates => draw_dates(f, area, s, list_state),
+                HistoryPanelLevel::Encounters => draw_encounters(f, area, s, list_state),
                 HistoryPanelLevel::EncounterDetail => draw_encounter_detail(f, area, s),
             }
         }
@@ -137,9 +138,9 @@ fn draw_body(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 return;
             }
             match s.history.dungeon_level {
-                DungeonPanelLevel::Dates => draw_dungeon_dates(f, area, s),
-                DungeonPanelLevel::Runs => draw_dungeon_runs(f, area, s),
-                DungeonPanelLevel::RunDetail => draw_dungeon_run_detail(f, area, s),
+                DungeonPanelLevel::Dates => draw_dungeon_dates(f, area, s, list_state),
+                DungeonPanelLevel::Runs => draw_dungeon_runs(f, area, s, list_state),
+                DungeonPanelLevel::RunDetail => draw_dungeon_run_detail(f, area, s, list_state),
                 DungeonPanelLevel::EncounterDetail => draw_dungeon_encounter_detail(f, area, s),
             }
         }
@@ -150,7 +151,7 @@ fn draw_body(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     }
 }
 
-fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
+fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &mut ListState) {
     if s.history.days.is_empty() {
         let block = Paragraph::new("No encounters recorded yet.")
             .alignment(ratatui::layout::Alignment::Center)
@@ -166,8 +167,7 @@ fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         .map(|day| ListItem::new(day.label.clone()))
         .collect();
 
-    let mut state = ListState::default();
-    state.select(Some(s.history.selected_day));
+    list_state.select(Some(s.history.selected_day));
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -183,7 +183,7 @@ fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, chunks[0], &mut state);
+    f.render_stateful_widget(list, chunks[0], list_state);
 
     let hint = Paragraph::new("Tab swaps view · Enter view encounters")
         .alignment(Alignment::Center)
@@ -191,7 +191,7 @@ fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     f.render_widget(hint, chunks[1]);
 }
 
-fn draw_encounters(f: &mut Frame, area: Rect, s: &AppSnapshot) {
+fn draw_encounters(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &mut ListState) {
     let Some(day) = s.history.current_day() else {
         let block = Paragraph::new("No date selected.")
             .alignment(ratatui::layout::Alignment::Center)
@@ -225,8 +225,7 @@ fn draw_encounters(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         })
         .collect();
 
-    let mut state = ListState::default();
-    state.select(Some(s.history.selected_encounter));
+    list_state.select(Some(s.history.selected_encounter));
 
     let title = format!("Encounters · {}", day.label);
     let list = List::new(items)
@@ -238,7 +237,7 @@ fn draw_encounters(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, area, &mut state);
+    f.render_stateful_widget(list, area, list_state);
 }
 
 fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
@@ -258,7 +257,7 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         return;
     };
 
-    let Some(record) = encounter.record.as_ref() else {
+    let Some(record) = encounter.record.as_deref() else {
         let block = Paragraph::new("Loading encounter…")
             .alignment(Alignment::Center)
             .block(
@@ -289,7 +288,7 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     );
 }
 
-fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
+fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &mut ListState) {
     let items: Vec<ListItem> = s
         .history
         .dungeon_days
@@ -297,8 +296,7 @@ fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         .map(|day| ListItem::new(day.label.clone()))
         .collect();
 
-    let mut state = ListState::default();
-    state.select(Some(s.history.dungeon_selected_day));
+    list_state.select(Some(s.history.dungeon_selected_day));
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -318,7 +316,7 @@ fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, chunks[0], &mut state);
+    f.render_stateful_widget(list, chunks[0], list_state);
 
     let hint = Paragraph::new("Tab swaps view · Enter view runs")
         .alignment(Alignment::Center)
@@ -326,7 +324,7 @@ fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     f.render_widget(hint, chunks[1]);
 }
 
-fn draw_dungeon_runs(f: &mut Frame, area: Rect, s: &AppSnapshot) {
+fn draw_dungeon_runs(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &mut ListState) {
     let Some(day) = s.history.current_dungeon_day() else {
         let block = Paragraph::new("No date selected.")
             .alignment(Alignment::Center)
@@ -370,8 +368,7 @@ fn draw_dungeon_runs(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         })
         .collect();
 
-    let mut state = ListState::default();
-    state.select(Some(s.history.dungeon_selected_run));
+    list_state.select(Some(s.history.dungeon_selected_run));
 
     let title = format!("Dungeon Runs · {}", day.label);
     let list = List::new(items)
@@ -383,10 +380,10 @@ fn draw_dungeon_runs(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, area, &mut state);
+    f.render_stateful_widget(list, area, list_state);
 }
 
-fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
+fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &mut ListState) {
     let Some(day) = s.history.current_dungeon_day() else {
         let block = Paragraph::new("No date selected.")
             .alignment(Alignment::Center)
@@ -488,7 +485,7 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     };
 
     for (idx, title) in record.child_titles.iter().enumerate() {
-        let label = if let Some(child) = run.child_records.get(idx).and_then(|c| c.as_ref()) {
+        let label = if let Some(child) = run.child_records.get(idx).and_then(|c| c.as_deref()) {
             let metric_value = match detail_mode {
                 ViewMode::Dps => child.encounter.encdps.as_str(),
                 ViewMode::Heal => child.encounter.enchps.as_str(),
@@ -549,7 +546,7 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
                     .bg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
             );
-        f.render_stateful_widget(list, layout[1], &mut list_state);
+        f.render_stateful_widget(list, layout[1], list_state);
     }
 
     let instructions =
@@ -585,7 +582,7 @@ fn draw_dungeon_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         return;
     }
 
-    let Some(encounter_record) = run.child_records.get(idx).and_then(|c| c.as_ref()) else {
+    let Some(encounter_record) = run.child_records.get(idx).and_then(|c| c.as_deref()) else {
         let block = Paragraph::new("Loading encounter…")
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));

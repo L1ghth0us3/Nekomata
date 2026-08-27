@@ -8,7 +8,7 @@ use crate::theme;
 
 use super::{
     AppEvent, AppSettings, CombatantRow, Decoration, DungeonPanelLevel, EncounterSummary,
-    HistoryPanel, HistoryPanelLevel, HistoryView, IdleScene, LimitBreakSummary,
+    HistoryPanel, HistoryPanelLevel, IdleScene, LimitBreakSummary,
     SettingsField, ViewMode,
 };
 
@@ -52,6 +52,7 @@ pub struct AppState {
     pub error: Option<AppError>,
     pub dungeon_active_zone: Option<String>,
     pub lb_summary: Option<LimitBreakSummary>,
+    pub history_list_state: ratatui::widgets::ListState,
 }
 
 impl Default for AppState {
@@ -75,6 +76,7 @@ impl Default for AppState {
             error: None,
             dungeon_active_zone: None,
             lb_summary: None,
+            history_list_state: ratatui::widgets::ListState::default(),
         }
     }
 }
@@ -128,7 +130,7 @@ impl AppState {
                 self.lb_summary = summary;
             }
             AppEvent::HistoryDatesLoaded { days } => {
-                self.history.loading = false;
+                self.history.finish_load();
                 self.history.error = None;
                 self.history.days = days;
                 if self.history.selected_day >= self.history.days.len() {
@@ -156,13 +158,13 @@ impl AppState {
                         self.history.selected_encounter = new_len.saturating_sub(1);
                     }
                 }
-                self.history.loading = false;
+                self.history.finish_load();
             }
             AppEvent::HistoryEncounterLoaded { key, record } => {
                 if let Some(item) = self.history.find_encounter_mut(&key) {
                     item.record = Some(record);
                 }
-                self.history.loading = false;
+                self.history.finish_load();
             }
             AppEvent::DungeonDatesLoaded { days } => {
                 self.history.dungeon_days = days;
@@ -171,7 +173,7 @@ impl AppState {
                 }
                 self.history.dungeon_selected_run = 0;
                 self.history.dungeon_selected_child = 0;
-                self.history.loading = false;
+                self.history.finish_load();
             }
             AppEvent::DungeonRunsLoaded { date_id, runs } => {
                 if let Some(day) = self.history.find_dungeon_day_mut(&date_id) {
@@ -182,7 +184,7 @@ impl AppState {
                         self.history.dungeon_selected_run = len.saturating_sub(1);
                     }
                 }
-                self.history.loading = false;
+                self.history.finish_load();
             }
             AppEvent::DungeonRunLoaded { key, record } => {
                 if let Some(run) = self.history.find_dungeon_run_mut(&key) {
@@ -190,7 +192,7 @@ impl AppState {
                     run.record = Some(record);
                     run.child_records = vec![None; child_count];
                 }
-                self.history.loading = false;
+                self.history.finish_load();
             }
             AppEvent::DungeonEncounterLoaded { key, record } => {
                 'outer: for day in &mut self.history.dungeon_days {
@@ -210,13 +212,13 @@ impl AppState {
                         }
                     }
                 }
-                self.history.loading = false;
+                self.history.finish_load();
             }
             AppEvent::DungeonSessionUpdate { active_zone } => {
                 self.dungeon_active_zone = active_zone;
             }
             AppEvent::HistoryError { message } => {
-                self.history.loading = false;
+                self.history.finish_load();
                 self.history.error = Some(message);
             }
             AppEvent::SystemError { error } => {
@@ -460,8 +462,8 @@ impl AppState {
             false
         } else {
             self.history.visible = true;
-            self.history.loading = true;
-            self.history.error = None;
+            self.history.begin_load();
+            self.history.begin_load();
             self.history.level = HistoryPanelLevel::Dates;
             self.history.dungeon_level = DungeonPanelLevel::Dates;
             self.history.selected_day = 0;
@@ -475,272 +477,31 @@ impl AppState {
         }
     }
 
+    pub fn history_begin_load(&mut self) {
+        self.history.begin_load();
+    }
+
     pub fn history_set_loading(&mut self) {
-        self.history.loading = true;
-        self.history.error = None;
+        self.history_begin_load();
     }
 
     pub fn history_move_selection(&mut self, delta: i32) {
-        if !self.history.visible || self.history.loading {
-            return;
-        }
-        match self.history.view {
-            HistoryView::Encounters => match self.history.level {
-                HistoryPanelLevel::Dates => {
-                    if self.history.days.is_empty() {
-                        return;
-                    }
-                    let len = self.history.days.len() as i32;
-                    let current = self.history.selected_day as i32;
-                    let mut next = current + delta;
-                    if next < 0 {
-                        next = 0;
-                    } else if next >= len {
-                        next = len - 1;
-                    }
-                    self.history.selected_day = next as usize;
-                    if let Some(day) = self.history.current_day() {
-                        if day.encounters.is_empty() {
-                            self.history.selected_encounter = 0;
-                        } else if self.history.selected_encounter >= day.encounters.len() {
-                            self.history.selected_encounter = day.encounters.len() - 1;
-                        }
-                    }
-                }
-                HistoryPanelLevel::Encounters | HistoryPanelLevel::EncounterDetail => {
-                    if let Some(day) = self.history.current_day() {
-                        if day.encounters.is_empty() {
-                            return;
-                        }
-                        let len = day.encounters.len() as i32;
-                        let current = self.history.selected_encounter as i32;
-                        let mut next = current + delta;
-                        if next < 0 {
-                            next = 0;
-                        } else if next >= len {
-                            next = len - 1;
-                        }
-                        self.history.selected_encounter = next as usize;
-                    }
-                }
-            },
-            HistoryView::Dungeons => match self.history.dungeon_level {
-                DungeonPanelLevel::Dates => {
-                    if self.history.dungeon_days.is_empty() {
-                        return;
-                    }
-                    let len = self.history.dungeon_days.len() as i32;
-                    let current = self.history.dungeon_selected_day as i32;
-                    let mut next = current + delta;
-                    if next < 0 {
-                        next = 0;
-                    } else if next >= len {
-                        next = len - 1;
-                    }
-                    self.history.dungeon_selected_day = next as usize;
-                    if let Some(day) = self.history.current_dungeon_day() {
-                        if day.runs.is_empty() {
-                            self.history.dungeon_selected_run = 0;
-                        } else if self.history.dungeon_selected_run >= day.runs.len() {
-                            self.history.dungeon_selected_run = day.runs.len() - 1;
-                        }
-                        self.history.dungeon_selected_child = 0;
-                    }
-                }
-                DungeonPanelLevel::Runs => {
-                    if let Some(day) = self.history.current_dungeon_day() {
-                        if day.runs.is_empty() {
-                            return;
-                        }
-                        let len = day.runs.len() as i32;
-                        let current = self.history.dungeon_selected_run as i32;
-                        let mut next = current + delta;
-                        if next < 0 {
-                            next = 0;
-                        } else if next >= len {
-                            next = len - 1;
-                        }
-                        self.history.dungeon_selected_run = next as usize;
-                        self.history.dungeon_selected_child = 0;
-                    }
-                }
-                DungeonPanelLevel::RunDetail => {
-                    if let Some(run) = self.history.current_dungeon_run() {
-                        let child_len = run
-                            .record
-                            .as_ref()
-                            .map(|rec| rec.child_keys.len())
-                            .unwrap_or(run.child_records.len());
-                        if child_len == 0 {
-                            return;
-                        }
-                        let len = child_len as i32;
-                        let current = self.history.dungeon_selected_child as i32;
-                        let mut next = current + delta;
-                        if next < 0 {
-                            next = 0;
-                        } else if next >= len {
-                            next = len - 1;
-                        }
-                        self.history.dungeon_selected_child = next as usize;
-                    }
-                }
-                DungeonPanelLevel::EncounterDetail => {
-                    if let Some(run) = self.history.current_dungeon_run() {
-                        let child_len = run
-                            .record
-                            .as_ref()
-                            .map(|rec| rec.child_keys.len())
-                            .unwrap_or(run.child_records.len());
-                        if child_len == 0 {
-                            return;
-                        }
-                        let len = child_len as i32;
-                        let current = self.history.dungeon_selected_child as i32;
-                        let mut next = current + delta;
-                        if next < 0 {
-                            next = 0;
-                        } else if next >= len {
-                            next = len - 1;
-                        }
-                        self.history.dungeon_selected_child = next as usize;
-                    }
-                }
-            },
-        }
+        self.history.move_selection(delta);
     }
 
     pub fn history_toggle_mode(&mut self) {
-        if !self.history.visible || self.history.loading {
-            return;
-        }
-        match self.history.view {
-            HistoryView::Encounters => {
-                if self.history.level == HistoryPanelLevel::EncounterDetail {
-                    self.history.detail_mode = self.history.detail_mode.next();
-                }
-            }
-            HistoryView::Dungeons => match self.history.dungeon_level {
-                DungeonPanelLevel::RunDetail => {
-                    self.history.dungeon_detail_mode = self.history.dungeon_detail_mode.next();
-                }
-                DungeonPanelLevel::EncounterDetail => {
-                    self.history.detail_mode = self.history.detail_mode.next();
-                }
-                _ => {}
-            },
-        }
+        self.history.toggle_mode();
     }
 
     pub fn history_toggle_view(&mut self) {
-        if !self.history.visible {
-            return;
-        }
-        self.history.loading = false;
-        match self.history.view {
-            HistoryView::Encounters => {
-                self.history.view = HistoryView::Dungeons;
-                self.history.dungeon_level = DungeonPanelLevel::Dates;
-                self.history.error = None;
-            }
-            HistoryView::Dungeons => {
-                self.history.view = HistoryView::Encounters;
-                self.history.level = HistoryPanelLevel::Dates;
-                self.history.error = None;
-            }
-        }
+        self.history.toggle_view();
     }
 
     pub fn history_enter(&mut self) {
-        if !self.history.visible || self.history.loading {
-            return;
-        }
-        match self.history.view {
-            HistoryView::Encounters => match self.history.level {
-                HistoryPanelLevel::Dates => {
-                    if let Some(day) = self.history.current_day() {
-                        if day.encounters_loaded {
-                            if !day.encounters.is_empty() {
-                                self.history.level = HistoryPanelLevel::Encounters;
-                                self.history.selected_encounter = 0;
-                            }
-                        } else if !day.encounter_ids.is_empty() {
-                            self.history.level = HistoryPanelLevel::Encounters;
-                            self.history.selected_encounter = 0;
-                        }
-                    }
-                }
-                HistoryPanelLevel::Encounters => {
-                    if self.history.current_encounter().is_some() {
-                        self.history.level = HistoryPanelLevel::EncounterDetail;
-                    }
-                }
-                HistoryPanelLevel::EncounterDetail => {}
-            },
-            HistoryView::Dungeons => match self.history.dungeon_level {
-                DungeonPanelLevel::Dates => {
-                    if let Some(day) = self.history.current_dungeon_day() {
-                        if day.runs_loaded {
-                            if !day.runs.is_empty() {
-                                self.history.dungeon_level = DungeonPanelLevel::Runs;
-                                self.history.dungeon_selected_run = 0;
-                            }
-                        } else if !day.run_ids.is_empty() {
-                            self.history.dungeon_level = DungeonPanelLevel::Runs;
-                            self.history.dungeon_selected_run = 0;
-                        }
-                    }
-                }
-                DungeonPanelLevel::Runs => {
-                    if self.history.current_dungeon_run().is_some() {
-                        self.history.dungeon_level = DungeonPanelLevel::RunDetail;
-                        self.history.dungeon_selected_child = 0;
-                    }
-                }
-                DungeonPanelLevel::RunDetail => {
-                    if let Some(run) = self.history.current_dungeon_run() {
-                        if let Some(record) = run.record.as_ref() {
-                            if !record.child_keys.is_empty() {
-                                self.history.dungeon_level = DungeonPanelLevel::EncounterDetail;
-                                self.history.dungeon_selected_child = 0;
-                            }
-                        }
-                    }
-                }
-                DungeonPanelLevel::EncounterDetail => {}
-            },
-        }
+        self.history.enter();
     }
 
     pub fn history_back(&mut self) {
-        if !self.history.visible {
-            return;
-        }
-        match self.history.view {
-            HistoryView::Encounters => match self.history.level {
-                HistoryPanelLevel::EncounterDetail => {
-                    self.history.level = HistoryPanelLevel::Encounters;
-                }
-                HistoryPanelLevel::Encounters => {
-                    self.history.level = HistoryPanelLevel::Dates;
-                    self.history.selected_encounter = 0;
-                }
-                HistoryPanelLevel::Dates => {}
-            },
-            HistoryView::Dungeons => match self.history.dungeon_level {
-                DungeonPanelLevel::EncounterDetail => {
-                    self.history.dungeon_level = DungeonPanelLevel::RunDetail;
-                }
-                DungeonPanelLevel::RunDetail => {
-                    self.history.dungeon_level = DungeonPanelLevel::Runs;
-                    self.history.dungeon_selected_child = 0;
-                }
-                DungeonPanelLevel::Runs => {
-                    self.history.dungeon_level = DungeonPanelLevel::Dates;
-                    self.history.dungeon_selected_run = 0;
-                }
-                DungeonPanelLevel::Dates => {}
-            },
-        }
+        self.history.back();
     }
 }
