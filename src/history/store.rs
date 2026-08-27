@@ -13,6 +13,10 @@ use super::types::{
     HistoryEncounterItem, HistoryKey, DUNGEON_NAMESPACE, ENCOUNTER_NAMESPACE,
     META_SCHEMA_VERSION_KEY, SCHEMA_VERSION,
 };
+use super::retention::{
+    cutoff_ms_for_days, format_oldest_date, HistoryLimitKind, HistoryRetentionPolicy,
+    RetentionPlan,
+};
 use super::util::resolve_title;
 
 /// Thin wrapper around the sled database.
@@ -140,9 +144,256 @@ impl HistoryStore {
 
     #[allow(dead_code)]
     pub fn remove(&self, key: &HistoryKey) -> Result<()> {
+        self.remove_encounter_cascade(key)
+    }
+
+    pub fn size_on_disk(&self) -> Result<u64> {
+        self.db.size_on_disk().context("Failed to read history DB size")
+    }
+
+    pub fn flush(&self) -> Result<()> {
+        self.db.flush().context("Failed to flush history database")?;
+        Ok(())
+    }
+
+    pub fn dry_run_retention(&self, policy: &HistoryRetentionPolicy) -> Result<RetentionPlan> {
+        let keys = self.collect_retention_keys(policy)?;
+        let mut oldest_ms: Option<u64> = None;
+        let mut encounter_count = 0usize;
+        let mut dungeon_count = 0usize;
+        for key in &keys {
+            if key.namespace() == ENCOUNTER_NAMESPACE {
+                encounter_count += 1;
+            } else if key.namespace() == DUNGEON_NAMESPACE {
+                dungeon_count += 1;
+            }
+            if let Some(ms) = self.key_timestamp_ms(key) {
+                oldest_ms = Some(match oldest_ms {
+                    Some(current) => current.min(ms),
+                    None => ms,
+                });
+            }
+        }
+        let may_rebuild = matches!(policy.kind, HistoryLimitKind::MaxSizeMb)
+            && !keys.is_empty()
+            && self
+                .size_on_disk()
+                .map(|size| size > policy.size_mb.saturating_mul(1024 * 1024))
+                .unwrap_or(false);
+        Ok(RetentionPlan {
+            encounter_count,
+            dungeon_count,
+            oldest_date: oldest_ms.and_then(format_oldest_date),
+            may_rebuild,
+        })
+    }
+
+    pub fn apply_retention(&self, policy: &HistoryRetentionPolicy) -> Result<RetentionPlan> {
+        if matches!(policy.kind, HistoryLimitKind::None) {
+            return Ok(RetentionPlan::default());
+        }
+        let keys = self.collect_retention_keys(policy)?;
+        for key in keys {
+            if key.namespace() == ENCOUNTER_NAMESPACE {
+                self.remove_encounter_cascade(&key)?;
+            } else if key.namespace() == DUNGEON_NAMESPACE {
+                self.remove_dungeon_cascade(&key)?;
+            }
+        }
+        self.flush()?;
+        if matches!(policy.kind, HistoryLimitKind::MaxSizeMb) {
+            let cap = policy.size_mb.saturating_mul(1024 * 1024);
+            if self.size_on_disk().unwrap_or(0) > cap {
+                self.compact_to_cap(policy)?;
+            }
+        }
+        self.dry_run_retention(policy)
+    }
+
+    fn collect_retention_keys(&self, policy: &HistoryRetentionPolicy) -> Result<Vec<HistoryKey>> {
+        match policy.kind {
+            HistoryLimitKind::None => Ok(Vec::new()),
+            HistoryLimitKind::MaxAgeDays => self.keys_older_than(cutoff_ms_for_days(policy.days)),
+            HistoryLimitKind::MaxSizeMb => self.keys_for_size_cap(policy.size_mb),
+        }
+    }
+
+    fn keys_older_than(&self, cutoff_ms: u64) -> Result<Vec<HistoryKey>> {
+        let mut keys = Vec::new();
+        for entry in self.encounter_summaries.iter() {
+            let (key_bytes, value_bytes) =
+                entry.context("Failed to iterate encounter summaries")?;
+            let summary: EncounterSummaryRecord = serde_cbor::from_slice(value_bytes.as_ref())
+                .context("Failed to deserialize encounter summary")?;
+            if summary.last_seen_ms < cutoff_ms {
+                if let Some(key) = HistoryKey::from_bytes(key_bytes.as_ref()) {
+                    keys.push(key);
+                }
+            }
+        }
+        for entry in self.dungeon_summaries.iter() {
+            let (key_bytes, value_bytes) = entry.context("Failed to iterate dungeon summaries")?;
+            let summary: DungeonSummaryRecord = serde_cbor::from_slice(value_bytes.as_ref())
+                .context("Failed to deserialize dungeon summary")?;
+            if summary.last_seen_ms < cutoff_ms {
+                if let Some(key) = HistoryKey::from_bytes(key_bytes.as_ref()) {
+                    keys.push(key);
+                }
+            }
+        }
+        Ok(keys)
+    }
+
+    fn keys_for_size_cap(&self, size_mb: u64) -> Result<Vec<HistoryKey>> {
+        let cap = size_mb.saturating_mul(1024 * 1024);
+        if self.size_on_disk().unwrap_or(0) <= cap {
+            return Ok(Vec::new());
+        }
+        let mut keys = Vec::new();
+        let mut dates: Vec<String> = self
+            .date_index
+            .iter()
+            .filter_map(|entry| {
+                let (key_bytes, _) = entry.ok()?;
+                String::from_utf8(key_bytes.to_vec()).ok()
+            })
+            .collect();
+        dates.sort();
+        for date in dates {
+            if self.size_on_disk().unwrap_or(0) <= cap {
+                break;
+            }
+            keys.extend(self.keys_for_date(&date)?);
+        }
+        Ok(keys)
+    }
+
+    fn keys_for_date(&self, date_id: &str) -> Result<Vec<HistoryKey>> {
+        let mut keys = Vec::new();
+        if let Some(bytes) = self.date_index.get(date_id.as_bytes())? {
+            let summary: DateSummaryRecord =
+                serde_cbor::from_slice(bytes.as_ref()).context("Failed to read date summary")?;
+            for key_bytes in summary.encounter_ids {
+                if let Some(key) = HistoryKey::from_bytes(&key_bytes) {
+                    keys.push(key);
+                }
+            }
+        }
+        if let Some(bytes) = self.dungeon_dates.get(date_id.as_bytes())? {
+            let summary: DateSummaryRecord = serde_cbor::from_slice(bytes.as_ref())
+                .context("Failed to read dungeon date summary")?;
+            for key_bytes in summary.encounter_ids {
+                if let Some(key) = HistoryKey::from_bytes(&key_bytes) {
+                    keys.push(key);
+                }
+            }
+        }
+        Ok(keys)
+    }
+
+    fn remove_encounter_cascade(&self, key: &HistoryKey) -> Result<()> {
+        let key_bytes = key.as_bytes();
+        let date_id = self
+            .encounter_summaries
+            .get(key_bytes.as_slice())
+            .context("Failed to read encounter summary for delete")?
+            .map(|bytes| {
+                serde_cbor::from_slice::<EncounterSummaryRecord>(bytes.as_ref())
+                    .map(|s| s.date_id)
+            })
+            .transpose()
+            .context("Failed to deserialize encounter summary for delete")?;
+
         self.encounters
-            .remove(key.as_bytes())
+            .remove(key_bytes.as_slice())
             .context("Failed to delete encounter record")?;
+        self.encounter_summaries
+            .remove(key_bytes.as_slice())
+            .context("Failed to delete encounter summary")?;
+
+        if let Some(date_id) = date_id {
+            self.remove_key_from_date_index(&date_id, key_bytes.as_slice(), false)?;
+        }
+        Ok(())
+    }
+
+    fn remove_dungeon_cascade(&self, key: &HistoryKey) -> Result<()> {
+        let key_bytes = key.as_bytes();
+        let date_id = self
+            .dungeon_summaries
+            .get(key_bytes.as_slice())
+            .context("Failed to read dungeon summary for delete")?
+            .map(|bytes| {
+                serde_cbor::from_slice::<DungeonSummaryRecord>(bytes.as_ref())
+                    .map(|s| s.date_id)
+            })
+            .transpose()
+            .context("Failed to deserialize dungeon summary for delete")?;
+
+        self.dungeon_runs
+            .remove(key_bytes.as_slice())
+            .context("Failed to delete dungeon run")?;
+        self.dungeon_summaries
+            .remove(key_bytes.as_slice())
+            .context("Failed to delete dungeon summary")?;
+
+        if let Some(date_id) = date_id {
+            self.remove_key_from_date_index(&date_id, key_bytes.as_slice(), true)?;
+        }
+        Ok(())
+    }
+
+    fn remove_key_from_date_index(
+        &self,
+        date_id: &str,
+        key_bytes: &[u8],
+        dungeon: bool,
+    ) -> Result<()> {
+        let tree = if dungeon {
+            &self.dungeon_dates
+        } else {
+            &self.date_index
+        };
+        let Some(bytes) = tree.get(date_id.as_bytes())? else {
+            return Ok(());
+        };
+        let mut record: DateSummaryRecord =
+            serde_cbor::from_slice(bytes.as_ref()).context("Failed to deserialize date summary")?;
+        record
+            .encounter_ids
+            .retain(|existing| existing.as_slice() != key_bytes);
+        if record.encounter_ids.is_empty() {
+            tree.remove(date_id.as_bytes())?;
+        } else {
+            let updated =
+                serde_cbor::to_vec(&record).context("Failed to serialize date summary")?;
+            tree.insert(date_id.as_bytes(), updated)?;
+        }
+        Ok(())
+    }
+
+    fn key_timestamp_ms(&self, key: &HistoryKey) -> Option<u64> {
+        Some(key.timestamp_ms())
+    }
+
+    fn compact_to_cap(&self, policy: &HistoryRetentionPolicy) -> Result<()> {
+        let cap = policy.size_mb.saturating_mul(1024 * 1024);
+        let mut guard = 0usize;
+        while self.size_on_disk().unwrap_or(0) > cap && guard < 512 {
+            let keys = self.keys_for_size_cap(policy.size_mb)?;
+            if keys.is_empty() {
+                break;
+            }
+            for key in keys {
+                if key.namespace() == ENCOUNTER_NAMESPACE {
+                    self.remove_encounter_cascade(&key)?;
+                } else if key.namespace() == DUNGEON_NAMESPACE {
+                    self.remove_dungeon_cascade(&key)?;
+                }
+            }
+            self.flush()?;
+            guard += 1;
+        }
         Ok(())
     }
 
@@ -580,6 +831,9 @@ fn format_duration_label(total_secs: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::EncounterSummary;
+    use crate::history::retention::{cutoff_ms_for_days, now_ms, HistoryLimitKind, HistoryRetentionPolicy};
+    use crate::history::types::SCHEMA_VERSION;
 
     fn make_summary(key: &[u8], base_title: &str, last_seen: u64) -> EncounterSummaryRecord {
         EncounterSummaryRecord {
@@ -653,5 +907,46 @@ mod tests {
         assert_eq!(item.duration_label, "02:05");
         assert_eq!(item.child_count, 3);
         assert_eq!(item.zone, "Sastasha");
+    }
+
+    #[test]
+    fn dry_run_age_retention_counts_old_records() {
+        let base = std::env::temp_dir().join(format!("nekomata-retention-{}", now_ms()));
+        std::fs::create_dir_all(&base).expect("create temp dir");
+        let db_path = base.join("encounters.sled");
+        let store = HistoryStore::open(&db_path).expect("open store");
+
+        let old_ms = cutoff_ms_for_days(10);
+        let record = EncounterRecord {
+            version: SCHEMA_VERSION,
+            stored_ms: old_ms,
+            first_seen_ms: old_ms,
+            last_seen_ms: old_ms,
+            encounter: EncounterSummary {
+                title: "Old Fight".into(),
+                zone: "Zone".into(),
+                duration: "01:00".into(),
+                encdps: "100".into(),
+                damage: "1000".into(),
+                enchps: "0".into(),
+                healed: "0".into(),
+                is_active: false,
+            },
+            rows: Vec::new(),
+            raw_last: None,
+            snapshots: 1,
+            saw_active: true,
+            frames: Vec::new(),
+            lb_summary: None,
+        };
+        store.append(&record).expect("append old record");
+
+        let policy = HistoryRetentionPolicy {
+            kind: HistoryLimitKind::MaxAgeDays,
+            days: 5,
+            size_mb: 256,
+        };
+        let plan = store.dry_run_retention(&policy).expect("dry run");
+        assert_eq!(plan.encounter_count, 1);
     }
 }

@@ -57,6 +57,8 @@ pub struct HistoryPanel {
     pub detail_mode: ViewMode,
     #[serde(default)]
     pub dungeon_detail_mode: ViewMode,
+    #[serde(default, skip)]
+    pub viewing_archive: Option<String>,
 }
 
 impl Default for HistoryPanel {
@@ -79,6 +81,7 @@ impl Default for HistoryPanel {
             list_scroll_offset: 0,
             detail_mode: ViewMode::Dps,
             dungeon_detail_mode: ViewMode::Dps,
+            viewing_archive: None,
         }
     }
 }
@@ -98,6 +101,7 @@ impl HistoryPanel {
         self.error = None;
         self.detail_mode = ViewMode::Dps;
         self.dungeon_detail_mode = ViewMode::Dps;
+        self.viewing_archive = None;
         for day in &mut self.days {
             day.encounters.clear();
             day.encounters_loaded = false;

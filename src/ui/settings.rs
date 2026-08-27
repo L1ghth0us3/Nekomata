@@ -17,6 +17,8 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
     let limit_break_selected = matches!(snapshot.settings_cursor, SettingsField::LimitBreakMode);
     let theme_selected = matches!(snapshot.settings_cursor, SettingsField::Theme);
     let role_theme_selected = matches!(snapshot.settings_cursor, SettingsField::RoleTheme);
+    let history_settings_selected =
+        matches!(snapshot.settings_cursor, SettingsField::HistorySettings);
 
     let mut lines = Vec::new();
     //lines.push(Line::from(vec![Span::styled("Settings", title_style())]));
@@ -72,11 +74,23 @@ pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
         },
     ));
     lines.push(Line::default());
+    lines.push(setting_line(
+        history_settings_selected,
+        "History Settings",
+        "Enter".to_string(),
+    ));
+    lines.push(Line::default());
 
     lines.push(Line::from(vec![Span::styled(
         "Use ↑/↓ to select, ←/→ to adjust.",
         header_style(),
     )]));
+    if history_settings_selected {
+        lines.push(Line::from(vec![Span::styled(
+            "Press Enter to open History Settings.",
+            header_style(),
+        )]));
+    }
     lines.push(Line::from(vec![Span::styled(
         "Press 'q' or 's' to close.",
         header_style(),

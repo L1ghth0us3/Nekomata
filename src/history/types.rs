@@ -60,7 +60,14 @@ impl HistoryKey {
         encode_key(&self.namespace, self.timestamp_ms, self.discriminator)
     }
 
-    #[allow(dead_code)]
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
+    pub fn timestamp_ms(&self) -> u64 {
+        self.timestamp_ms
+    }
+
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         decode_key(bytes)
     }

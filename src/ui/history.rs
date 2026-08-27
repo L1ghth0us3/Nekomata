@@ -79,9 +79,15 @@ fn draw_header(f: &mut Frame, area: Rect, s: &AppSnapshot) {
         Style::default().fg(text_color()),
     )]);
 
+    let title = if let Some(name) = &s.history.viewing_archive {
+        format!("History · archive: {name}")
+    } else {
+        "History".to_string()
+    };
+
     let block = Paragraph::new(vec![title_line, tabs_line, subtitle_line])
         .alignment(ratatui::layout::Alignment::Left)
-        .block(Block::default().borders(Borders::ALL).title("History"));
+        .block(Block::default().borders(Borders::ALL).title(title));
     f.render_widget(block, area);
 }
 

@@ -9,12 +9,12 @@ use tokio_tungstenite::tungstenite::protocol::frame::CloseFrame;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
-use crate::history::RecorderHandle;
+use crate::history::HistorySessionHandle;
 use crate::lb::{should_reset_lb, LimitBreakTracker};
 use crate::model::{AppEvent, EncounterSummary};
 use crate::parse::{parse_combat_data, parse_logline_for_lb};
 
-pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: RecorderHandle) {
+pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: HistorySessionHandle) {
     let mut lb_tracker = LimitBreakTracker::default();
     let mut prev_encounter: Option<EncounterSummary> = None;
     // Simple reconnect loop
@@ -55,12 +55,14 @@ pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: Recorde
                                             tx.send(AppEvent::LimitBreakUpdate { summary: None });
                                     }
                                     let lb_summary = lb_tracker.summary();
-                                    history.record_components(
-                                        enc.clone(),
-                                        rows.clone(),
-                                        val,
-                                        lb_summary.clone(),
-                                    );
+                                    history
+                                        .record_components(
+                                            enc.clone(),
+                                            rows.clone(),
+                                            val,
+                                            lb_summary.clone(),
+                                        )
+                                        .await;
                                     prev_encounter = Some(enc.clone());
                                     if tx
                                         .send(AppEvent::CombatData {
@@ -120,7 +122,7 @@ pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: Recorde
                         }
                     }
                 }
-                history.flush();
+                history.flush().await;
                 if tx.send(AppEvent::Disconnected).is_err() {
                     debug!("receiver dropped disconnected event");
                 }
@@ -128,7 +130,7 @@ pub async fn run(ws_url: String, tx: UnboundedSender<AppEvent>, history: Recorde
             }
             Err(err) => {
                 warn!(error = ?err, "websocket connection failed");
-                history.flush();
+                history.flush().await;
                 prev_encounter = None;
                 lb_tracker.reset();
                 let _ = tx.send(AppEvent::LimitBreakUpdate { summary: None });

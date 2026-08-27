@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 const CONFIG_DIR_ENV: &str = "NEKOMATA_CONFIG_DIR";
 const CONFIG_DIR_NAME: &str = "nekomata";
 const CONFIG_FILE_NAME: &str = "nekomata.config";
+const HISTORY_ARCHIVES_DIR: &str = "archives";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -33,6 +34,22 @@ pub struct AppConfig {
     /// - `true` => PanelAlways (1)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_limit_break: Option<bool>,
+    #[serde(default = "default_history_enabled")]
+    pub history_enabled: bool,
+    #[serde(default = "default_history_limit_kind")]
+    pub history_limit_kind: String,
+    #[serde(default = "default_history_limit_days")]
+    pub history_limit_days: u64,
+    #[serde(default = "default_history_limit_mb")]
+    pub history_limit_mb: u64,
+    #[serde(default = "default_history_limit_kind")]
+    pub history_limit_applied_kind: String,
+    #[serde(default = "default_history_limit_days")]
+    pub history_limit_applied_days: u64,
+    #[serde(default = "default_history_limit_mb")]
+    pub history_limit_applied_mb: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_last_backup_ms: Option<u64>,
 }
 
 impl Default for AppConfig {
@@ -46,6 +63,14 @@ impl Default for AppConfig {
             role_theme_enabled: default_role_theme_enabled(),
             limit_break_mode: Some(default_limit_break_mode()),
             show_limit_break: None,
+            history_enabled: default_history_enabled(),
+            history_limit_kind: default_history_limit_kind(),
+            history_limit_days: default_history_limit_days(),
+            history_limit_mb: default_history_limit_mb(),
+            history_limit_applied_kind: default_history_limit_kind(),
+            history_limit_applied_days: default_history_limit_days(),
+            history_limit_applied_mb: default_history_limit_mb(),
+            history_last_backup_ms: None,
         }
     }
 }
@@ -76,6 +101,22 @@ fn default_role_theme_enabled() -> bool {
 
 fn default_limit_break_mode() -> u8 {
     1
+}
+
+fn default_history_enabled() -> bool {
+    true
+}
+
+fn default_history_limit_kind() -> String {
+    "none".to_string()
+}
+
+fn default_history_limit_days() -> u64 {
+    30
+}
+
+fn default_history_limit_mb() -> u64 {
+    256
 }
 
 pub fn load() -> Result<AppConfig> {
@@ -129,4 +170,30 @@ pub fn history_dir() -> PathBuf {
 
 pub fn history_db_path() -> PathBuf {
     history_dir().join("encounters.sled")
+}
+
+pub fn history_archives_dir() -> PathBuf {
+    history_dir().join(HISTORY_ARCHIVES_DIR)
+}
+
+pub fn history_archive_path(name: &str) -> PathBuf {
+    history_archives_dir().join(name)
+}
+
+/// Sanitize a user-provided archive folder name.
+pub fn sanitize_archive_name(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed == "." || trimmed == ".." {
+        return None;
+    }
+    if trimmed.contains('/') || trimmed.contains('\\') {
+        return None;
+    }
+    if !trimmed
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-')
+    {
+        return None;
+    }
+    Some(trimmed.to_string())
 }

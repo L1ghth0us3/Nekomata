@@ -3,6 +3,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use crate::config::AppConfig;
+use crate::history::HistoryRetentionPolicy;
 
 use super::{Decoration, ViewMode};
 
@@ -63,6 +64,7 @@ pub enum SettingsField {
     LimitBreakMode,
     Theme,
     RoleTheme,
+    HistorySettings,
 }
 
 impl SettingsField {
@@ -74,19 +76,21 @@ impl SettingsField {
             SettingsField::DungeonMode => SettingsField::LimitBreakMode,
             SettingsField::LimitBreakMode => SettingsField::Theme,
             SettingsField::Theme => SettingsField::RoleTheme,
-            SettingsField::RoleTheme => SettingsField::IdleTimeout,
+            SettingsField::RoleTheme => SettingsField::HistorySettings,
+            SettingsField::HistorySettings => SettingsField::IdleTimeout,
         }
     }
 
     pub fn prev(self) -> Self {
         match self {
-            SettingsField::IdleTimeout => SettingsField::RoleTheme,
+            SettingsField::IdleTimeout => SettingsField::HistorySettings,
             SettingsField::DefaultDecoration => SettingsField::IdleTimeout,
             SettingsField::DefaultMode => SettingsField::DefaultDecoration,
             SettingsField::DungeonMode => SettingsField::DefaultMode,
             SettingsField::LimitBreakMode => SettingsField::DungeonMode,
             SettingsField::Theme => SettingsField::LimitBreakMode,
             SettingsField::RoleTheme => SettingsField::Theme,
+            SettingsField::HistorySettings => SettingsField::RoleTheme,
         }
     }
 }
@@ -100,6 +104,8 @@ pub struct AppSettings {
     pub theme_id: String,
     pub role_theme_enabled: bool,
     pub limit_break_mode: LimitBreakMode,
+    pub history_enabled: bool,
+    pub history_limit: HistoryRetentionPolicy,
 }
 
 impl Default for AppSettings {
@@ -112,6 +118,8 @@ impl Default for AppSettings {
             theme_id: String::new(),
             role_theme_enabled: true,
             limit_break_mode: LimitBreakMode::Panel,
+            history_enabled: true,
+            history_limit: HistoryRetentionPolicy::default(),
         }
     }
 }
@@ -123,6 +131,10 @@ impl AppSettings {
         } else {
             Some(Duration::from_secs(self.idle_seconds))
         }
+    }
+
+    pub fn committed_retention(&self) -> HistoryRetentionPolicy {
+        self.history_limit.clone()
     }
 }
 
@@ -145,24 +157,28 @@ impl From<AppConfig> for AppSettings {
             default_decoration: Decoration::from_config_key(&value.default_decoration),
             default_mode: ViewMode::from_config_key(&value.default_mode),
             dungeon_mode_enabled: value.dungeon_mode_enabled,
-            theme_id: value.theme_id,
+            theme_id: value.theme_id.clone(),
             role_theme_enabled: value.role_theme_enabled,
             limit_break_mode,
+            history_enabled: value.history_enabled,
+            history_limit: HistoryRetentionPolicy::from_config(&value),
         }
     }
 }
 
 impl From<AppSettings> for AppConfig {
     fn from(value: AppSettings) -> Self {
-        AppConfig {
-            idle_seconds: value.idle_seconds,
-            default_decoration: value.default_decoration.config_key().to_string(),
-            default_mode: value.default_mode.config_key().to_string(),
-            dungeon_mode_enabled: value.dungeon_mode_enabled,
-            theme_id: value.theme_id,
-            role_theme_enabled: value.role_theme_enabled,
-            limit_break_mode: Some(value.limit_break_mode.as_u8()),
-            show_limit_break: None,
-        }
+        let mut cfg = AppConfig::default();
+        cfg.idle_seconds = value.idle_seconds;
+        cfg.default_decoration = value.default_decoration.config_key().to_string();
+        cfg.default_mode = value.default_mode.config_key().to_string();
+        cfg.dungeon_mode_enabled = value.dungeon_mode_enabled;
+        cfg.theme_id = value.theme_id;
+        cfg.role_theme_enabled = value.role_theme_enabled;
+        cfg.limit_break_mode = Some(value.limit_break_mode.as_u8());
+        cfg.show_limit_break = None;
+        cfg.history_enabled = value.history_enabled;
+        value.history_limit.write_committed(&mut cfg);
+        cfg
     }
 }

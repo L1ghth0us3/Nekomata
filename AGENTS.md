@@ -69,7 +69,7 @@ See the README.md for build and run instructions.
 - Track encounter activity timestamps so the UI can surface an idle state when no fights are active for the configured timeout.
 - Surface user-facing settings through a modal pane and persist them to disk so inputs survive restarts.
 
-### Current TUI Behavior (v0.5.0)
+### Current TUI Behavior (v0.6.0-dev)
 - Rendering
   - Table columns: Name, Share%, ENCDPS, Job, Crit%, DH%, Deaths (numeric columns are right‑aligned). On narrow widths, Share% survives longer than ENCDPS/Job.
   - Responsive breakpoints hide columns at narrow widths (down to Name‑only).
@@ -92,6 +92,8 @@ See the README.md for build and run instructions.
 - Settings & persistence
   - `s` opens a modal settings pane; `↑/↓` moves the selection, `←/→` adjusts the highlighted value.
   - Idle timeout accepts `0` to disable idle mode; decoration, opening mode, dungeon mode, LB display, theme, and role-color toggle persist to disk.
+  - **History Settings** (last row in Settings, separated by a blank line): press `Enter` to open a nested overlay for history recording on/off, retention limits (draft-then-apply with confirmation before destructive pruning), backups, read-only archive browsing, and deleting live history.
+  - Disabling history stops recording without deleting data; re-enabling reconnects to the same sled database.
   - Settings persist to `~/.config/nekomata/nekomata.config` (override with `NEKOMATA_CONFIG_DIR`; Windows uses `%APPDATA%\nekomata`).
 - Dungeon Mode
   - Toggleable mode that aggregates encounters into single dungeon runs while preserving individual encounter details.
@@ -103,6 +105,8 @@ See the README.md for build and run instructions.
 
 ## Encounter History (sled-backed)
 - Storage lives under the same config root, inside `history/encounters.sled`; override via `NEKOMATA_CONFIG_DIR` like the main config file.
+- Manual backups copy the live DB directory to `history/archives/<name>/` (each archive is a sled directory).
+- Retention limits (`None`, older than N days, max size MB) are draft-then-apply: the first prune that would delete data requires explicit confirmation; ongoing maintenance uses the already-applied policy without prompting.
 - `HistoryStore` wraps sled trees; keys use `enc::<ms_since_epoch>::<id>` ordering so new namespaces can be added without migrations.
 - `spawn_recorder` starts a background task fed by `RecorderHandle`; push snapshots with `record_components(encounter, rows, raw_json)` and call `flush()` when tearing down connections.
 - Records capture first/last seen timestamps, the final encounter summary, combatant rows, and the last raw JSON payload. Empty passive snapshots are skipped to avoid noise.

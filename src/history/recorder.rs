@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use serde_json::Value;
 use tokio::sync::{mpsc, oneshot, Mutex};
@@ -9,6 +9,7 @@ use crate::errors::{AppError, AppErrorKind};
 use crate::model::{AppEvent, CombatantRow, EncounterSummary, LimitBreakSummary};
 
 use super::dungeon::{DungeonRecorder, DungeonRecorderUpdate, DungeonZoneState};
+use super::settings_controller::RetentionState;
 use super::store::HistoryStore;
 use super::types::{DungeonAggregateRecord, EncounterFrame, EncounterRecord, EncounterSnapshot};
 use super::util::{parse_duration_secs, parse_number};
@@ -86,12 +87,18 @@ pub fn spawn_recorder(
     event_tx: mpsc::UnboundedSender<AppEvent>,
     dungeon_catalog: Option<Arc<DungeonCatalog>>,
     dungeon_mode_enabled: bool,
+    retention_state: Arc<RwLock<RetentionState>>,
 ) -> RecorderHandle {
     let (tx, mut rx) = mpsc::unbounded_channel();
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
     tokio::spawn(async move {
-        let mut worker =
-            RecorderWorker::new(store, event_tx, dungeon_catalog, dungeon_mode_enabled);
+        let mut worker = RecorderWorker::new(
+            store,
+            event_tx,
+            dungeon_catalog,
+            dungeon_mode_enabled,
+            retention_state,
+        );
         loop {
             match rx.recv().await {
                 Some(RecorderMessage::Snapshot(snapshot)) => worker.on_snapshot(*snapshot).await,
@@ -127,6 +134,7 @@ struct RecorderWorker {
     current: Option<ActiveEncounter>,
     events: mpsc::UnboundedSender<AppEvent>,
     dungeon: DungeonRecorder,
+    retention_state: Arc<RwLock<RetentionState>>,
 }
 
 impl RecorderWorker {
@@ -135,12 +143,29 @@ impl RecorderWorker {
         events: mpsc::UnboundedSender<AppEvent>,
         dungeon_catalog: Option<Arc<DungeonCatalog>>,
         dungeon_mode_enabled: bool,
+        retention_state: Arc<RwLock<RetentionState>>,
     ) -> Self {
         Self {
             store,
             current: None,
             events,
             dungeon: DungeonRecorder::new(dungeon_catalog, dungeon_mode_enabled),
+            retention_state,
+        }
+    }
+
+    fn maybe_apply_retention(&self) {
+        let (policy, applied) = {
+            let guard = self.retention_state.read().ok();
+            guard.map(|g| (g.policy.clone(), g.applied)).unwrap_or_default()
+        };
+        if !applied || policy.kind == super::retention::HistoryLimitKind::None {
+            return;
+        }
+        let store = Arc::clone(&self.store);
+        if let Err(err) = store.apply_retention(&policy) {
+            let message = format!("Failed to apply history retention: {err}");
+            Self::report_error(&self.events, message, AppErrorKind::Storage);
         }
     }
 
@@ -223,6 +248,7 @@ impl RecorderWorker {
                     let key_bytes = key.as_bytes();
                     let update = self.dungeon.on_encounter(&record, key_bytes);
                     self.handle_dungeon_update(update).await;
+                    self.maybe_apply_retention();
                 }
                 Ok(Err(err)) => {
                     let message = format!("Failed to persist encounter history: {err}");
@@ -239,7 +265,9 @@ impl RecorderWorker {
     async fn persist_dungeon_record(&self, record: DungeonAggregateRecord) {
         let store = Arc::clone(&self.store);
         match task::spawn_blocking(move || store.append_dungeon(&record)).await {
-            Ok(Ok(_)) => {}
+            Ok(Ok(_)) => {
+                self.maybe_apply_retention();
+            }
             Ok(Err(err)) => {
                 let message = format!("Failed to persist dungeon aggregate: {err}");
                 Self::report_error(&self.events, message, AppErrorKind::Storage);
@@ -545,7 +573,14 @@ mod tests {
         let (tx, _rx) = mpsc::unbounded_channel();
         let catalog = DungeonCatalog::from_str(r#"{ "dungeons": { "Sastasha": {} } }"#)
             .expect("catalog parse");
-        let mut worker = RecorderWorker::new(store.clone(), tx, Some(Arc::new(catalog)), true);
+        let retention_state = Arc::new(RwLock::new(crate::history::RetentionState::default()));
+        let mut worker = RecorderWorker::new(
+            store.clone(),
+            tx,
+            Some(Arc::new(catalog)),
+            true,
+            retention_state,
+        );
 
         fn snapshot(
             zone: &str,

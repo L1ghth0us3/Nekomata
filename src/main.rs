@@ -1,8 +1,9 @@
 use std::env;
 use std::fs::{create_dir_all, OpenOptions};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{io, sync::Arc};
+use std::io;
 
 use anyhow::{bail, Context, Result};
 use crossterm::event::{
@@ -14,7 +15,7 @@ use crossterm::terminal::{
 };
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, RwLock as TokioRwLock};
 
 mod config;
 mod dungeon;
@@ -28,7 +29,11 @@ mod ui;
 mod ws_client;
 
 use history::{
-    determine_history_task, handle_history_mouse, spawn_history_task, spawn_initial_history_loads,
+    determine_history_task, handle_history_mouse, handle_history_settings_input,
+    open_history_settings_panel, refresh_archive_count, shared_retention_state,
+    spawn_history_task, spawn_initial_history_loads, try_close_history_settings,
+    HistoryRetentionPolicy, HistorySession, HistorySessionHandle, HistorySettingsContext,
+    HistoryStore,
 };
 use model::{AppEvent, AppSettings, AppState, SettingsField, WS_URL_DEFAULT};
 use tracing::level_filters::LevelFilter;
@@ -39,14 +44,11 @@ async fn main() -> Result<()> {
     let cli = parse_cli()?;
     init_tracing(&cli)?;
 
-    // Shared app state
-    let state = Arc::new(RwLock::new(AppState::default()));
+    let state = Arc::new(TokioRwLock::new(AppState::default()));
 
-    // WS event channel
     let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
     let event_tx = tx.clone();
 
-    // Dungeon catalog (optional; disable dungeon mode if unavailable)
     let dungeon_catalog = match dungeon::DungeonCatalog::load_default() {
         Ok(catalog) => Some(Arc::new(catalog)),
         Err(err) => {
@@ -55,59 +57,71 @@ async fn main() -> Result<()> {
         }
     };
 
-    // Load persisted configuration into state
-    let app_cfg = match config::load() {
+    let mut app_cfg = match config::load() {
         Ok(c) => c,
         Err(err) => {
             eprintln!("Failed to load config: {err:?}. Using defaults.");
             config::AppConfig::default()
         }
     };
+
+    let retention_state = shared_retention_state(&app_cfg);
+
     {
         let mut s = state.write().await;
         s.apply_settings(AppSettings::from(app_cfg.clone()));
-        // Initialize disconnected_since since the app starts disconnected
-        // This must happen after settings are loaded so idle_duration() works correctly
         if s.disconnected_since.is_none() {
             s.disconnected_since = Some(Instant::now());
         }
+        refresh_archive_count(&mut s);
     }
 
-    // History persistence (sled-backed)
-    let history_store = Arc::new(history::HistoryStore::open_default()?);
-    let history_recorder = history::spawn_recorder(
-        history_store.clone(),
+    let history_session = HistorySessionHandle::new(HistorySession::new(
         tx.clone(),
         dungeon_catalog.clone(),
         app_cfg.dungeon_mode_enabled,
-    );
+        Arc::clone(&retention_state),
+    ));
 
-    // Spawn WS client task (auto-connect and subscribe)
+    if app_cfg.history_enabled {
+        history_session.enable().await?;
+        if HistoryRetentionPolicy::from_config(&app_cfg).is_applied_in_config(&app_cfg) {
+            let policy = HistoryRetentionPolicy::from_config(&app_cfg);
+            let _ = history_session
+                .apply_retention_if_applied(&policy, &app_cfg)
+                .await;
+        }
+    }
+
+    let mut hs_ctx = HistorySettingsContext {
+        session: history_session.clone(),
+        retention_state: Arc::clone(&retention_state),
+        app_cfg,
+        event_tx: event_tx.clone(),
+        view_store: None,
+    };
+
     let ws_url = WS_URL_DEFAULT.to_string();
-    let history_tx = history_recorder.clone();
+    let ws_history = history_session.clone();
     let ws_tx = tx.clone();
-    tokio::spawn(async move { ws_client::run(ws_url, ws_tx, history_tx).await });
+    tokio::spawn(async move { ws_client::run(ws_url, ws_tx, ws_history).await });
 
-    // TUI init
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // App loop
     let tick = Duration::from_millis(100);
     let mut last_draw = Instant::now();
     let mut running = true;
 
     while running {
-        // Drain any incoming WS events into state
         while let Ok(evt) = rx.try_recv() {
             let mut s = state.write().await;
             s.apply(evt);
         }
 
-        // Draw at most every tick interval or immediately on first loop
         if last_draw.elapsed() >= tick {
             let mut s = state.write().await;
             let snapshot = s.clone_snapshot();
@@ -122,49 +136,78 @@ async fn main() -> Result<()> {
             last_draw = Instant::now();
         }
 
-        // Non-blocking input with small timeout so we keep redrawing
         if event::poll(Duration::from_millis(10))? {
             match event::read()? {
-                Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => {
-                        let mut s = state.write().await;
-                        if s.show_settings {
-                            s.show_settings = false;
-                        } else if s.history.visible {
-                            s.history.visible = false;
-                            s.history.reset();
-                        } else {
-                            running = false;
-                        }
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    let mut s = state.write().await;
+
+                    if s.history_settings.visible
+                        && handle_history_settings_input(key, &mut s, &mut hs_ctx).await
+                    {
+                        continue;
                     }
-                    KeyCode::Char('h') => {
-                        let should_load = {
-                            let mut s = state.write().await;
-                            s.toggle_history()
-                        };
-                        if should_load {
-                            let mut s = state.write().await;
-                            spawn_initial_history_loads(
-                                &mut s.history,
-                                history_store.clone(),
-                                event_tx.clone(),
-                            );
-                        }
-                    }
-                    KeyCode::Char('i') => {
-                        let mut s = state.write().await;
-                        if !s.history.visible {
-                            let now = Instant::now();
-                            if s.is_idle_at(now) {
-                                s.show_idle_overlay = !s.show_idle_overlay;
+
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => {
+                            if try_close_history_settings(&mut s).await {
+                                continue;
+                            }
+                            if s.show_settings {
+                                s.show_settings = false;
+                            } else if s.history.visible {
+                                if s.history.viewing_archive.is_some()
+                                    && s.history.level == model::HistoryPanelLevel::Dates
+                                    && s.history.dungeon_level == model::DungeonPanelLevel::Dates
+                                {
+                                    s.history.visible = false;
+                                    s.history.reset();
+                                    hs_ctx.view_store = None;
+                                } else if s.history.viewing_archive.is_some() {
+                                    s.history.back();
+                                } else {
+                                    s.history.visible = false;
+                                    s.history.reset();
+                                }
+                            } else {
+                                running = false;
                             }
                         }
-                    }
-                    _ => {
-                        let mut pending_task = None;
-                        let history_active = {
-                            let mut s = state.write().await;
-                            if s.history.visible {
+                        KeyCode::Char('h') => {
+                            if s.history.viewing_archive.is_some() {
+                                if s.history.level == model::HistoryPanelLevel::Dates
+                                    && s.history.dungeon_level == model::DungeonPanelLevel::Dates
+                                {
+                                    s.history.visible = false;
+                                    s.history.reset();
+                                    hs_ctx.view_store = None;
+                                } else {
+                                    s.history.back();
+                                }
+                                continue;
+                            }
+                            let should_load = s.toggle_history();
+                            if should_load {
+                                if let Some(store) = active_store(&hs_ctx, &history_session).await
+                                {
+                                    spawn_initial_history_loads(
+                                        &mut s.history,
+                                        store,
+                                        event_tx.clone(),
+                                    );
+                                }
+                            }
+                        }
+                        KeyCode::Char('i') => {
+                            if !s.history.visible {
+                                let now = Instant::now();
+                                if s.is_idle_at(now) {
+                                    s.show_idle_overlay = !s.show_idle_overlay;
+                                }
+                            }
+                        }
+                        _ => {
+                            let mut pending_task = None;
+                            let history_active = if s.history.visible {
                                 match key.code {
                                     KeyCode::Up => s.history_move_selection(-1),
                                     KeyCode::Down => s.history_move_selection(1),
@@ -185,72 +228,71 @@ async fn main() -> Result<()> {
                                 true
                             } else {
                                 false
-                            }
-                        };
+                            };
 
-                        if let Some(task) = pending_task {
-                            spawn_history_task(task, history_store.clone(), event_tx.clone());
-                        }
-
-                        if history_active {
-                            continue;
-                        }
-
-                        match key.code {
-                            KeyCode::Char('D') if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                                history_recorder.cut_dungeon_session();
-                            }
-                            KeyCode::Char('d') => {
-                                let mut s = state.write().await;
-                                s.decoration = s.decoration.next();
-                            }
-                            KeyCode::Char('m') => {
-                                let mut s = state.write().await;
-                                s.mode = s.mode.next();
-                                s.resort_rows();
-                            }
-                            KeyCode::Char('s') => {
-                                let mut s = state.write().await;
-                                s.show_settings = !s.show_settings;
-                                if s.show_settings {
-                                    s.settings_cursor = SettingsField::default();
+                            if let Some(task) = pending_task {
+                                if let Some(store) =
+                                    active_store(&hs_ctx, &history_session).await
+                                {
+                                    spawn_history_task(task, store, event_tx.clone());
                                 }
                             }
-                            KeyCode::Up => {
-                                let mut s = state.write().await;
-                                if s.show_settings {
+
+                            if history_active {
+                                continue;
+                            }
+
+                            match key.code {
+                                KeyCode::Char('D')
+                                    if key.modifiers.contains(KeyModifiers::SHIFT) =>
+                                {
+                                    history_session.cut_dungeon_session().await;
+                                }
+                                KeyCode::Char('d') => {
+                                    s.decoration = s.decoration.next();
+                                }
+                                KeyCode::Char('m') => {
+                                    s.mode = s.mode.next();
+                                    s.resort_rows();
+                                }
+                                KeyCode::Char('s') => {
+                                    s.show_settings = !s.show_settings;
+                                    if s.show_settings {
+                                        s.settings_cursor = SettingsField::default();
+                                    }
+                                }
+                                KeyCode::Enter if s.show_settings => {
+                                    if s.settings_cursor == SettingsField::HistorySettings {
+                                        let live_size =
+                                            history_session.live_db_size_bytes().await;
+                                        open_history_settings_panel(&mut s, live_size);
+                                    }
+                                }
+                                KeyCode::Up if s.show_settings => {
                                     s.prev_setting();
                                 }
-                            }
-                            KeyCode::Down => {
-                                let mut s = state.write().await;
-                                if s.show_settings {
+                                KeyCode::Down if s.show_settings => {
                                     s.next_setting();
                                 }
-                            }
-                            KeyCode::Left | KeyCode::Right => {
-                                let forward = matches!(key.code, KeyCode::Right);
-                                let updated = {
-                                    let mut s = state.write().await;
-                                    if s.show_settings && s.adjust_selected_setting(forward) {
-                                        Some(s.settings.clone())
-                                    } else {
-                                        None
+                                KeyCode::Left | KeyCode::Right if s.show_settings => {
+                                    let forward = matches!(key.code, KeyCode::Right);
+                                    if s.adjust_selected_setting(forward) {
+                                        hs_ctx.app_cfg = config::AppConfig::from(s.settings.clone());
+                                        if let Err(err) = config::save(&hs_ctx.app_cfg) {
+                                            eprintln!("Failed to save config: {err:?}");
+                                        }
+                                        history_session
+                                            .set_dungeon_mode_enabled(
+                                                hs_ctx.app_cfg.dungeon_mode_enabled,
+                                            )
+                                            .await;
                                     }
-                                };
-                                if let Some(settings) = updated {
-                                    let app_cfg: config::AppConfig = settings.into();
-                                    if let Err(err) = config::save(&app_cfg) {
-                                        eprintln!("Failed to save config: {err:?}");
-                                    }
-                                    history_recorder
-                                        .set_dungeon_mode_enabled(app_cfg.dungeon_mode_enabled);
                                 }
+                                _ => {}
                             }
-                            _ => {}
                         }
                     }
-                },
+                }
                 Event::Key(_) => {}
                 Event::Mouse(mouse) => {
                     let list_offset = {
@@ -261,7 +303,9 @@ async fn main() -> Result<()> {
                     let mut s = state.write().await;
                     if s.history.visible {
                         if let Some(task) = determine_history_task(&mut s) {
-                            spawn_history_task(task, history_store.clone(), event_tx.clone());
+                            if let Some(store) = active_store(&hs_ctx, &history_session).await {
+                                spawn_history_task(task, store, event_tx.clone());
+                            }
                         }
                     }
                 }
@@ -270,7 +314,6 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Restore terminal
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -278,8 +321,18 @@ async fn main() -> Result<()> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
-    history_recorder.shutdown().await;
+    history_session.shutdown().await;
     Ok(())
+}
+
+async fn active_store(
+    ctx: &HistorySettingsContext,
+    session: &HistorySessionHandle,
+) -> Option<Arc<HistoryStore>> {
+    if let Some(view) = ctx.view_store.clone() {
+        return Some(view);
+    }
+    session.store().await
 }
 
 #[derive(Debug, Default)]

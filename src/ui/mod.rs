@@ -7,6 +7,7 @@ use crate::model::{AppSnapshot, LimitBreakMode, LimitBreakSummary, ViewMode};
 mod encounter_detail;
 mod header;
 mod history;
+mod history_settings;
 mod idle;
 mod lb;
 pub(crate) use encounter_detail::{draw_encounter_record, EncounterDetailParams};
@@ -87,6 +88,10 @@ pub fn draw(f: &mut Frame, snapshot: &AppSnapshot, list_state: &mut ListState) -
 
     if snapshot.show_settings {
         settings::draw(f, snapshot);
+    }
+
+    if snapshot.history_settings.visible {
+        history_settings::draw(f, snapshot);
     }
 
     0

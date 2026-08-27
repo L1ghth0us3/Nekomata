@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is inspired by Keep a Changelog and uses calendar dates (YYYY‑MM‑DD).
 
+## [Unreleased]
+
+### History Settings
+- Nested **History Settings** pane (from main Settings) to enable/disable recording, set retention limits, back up the database, browse archives read-only, and delete live history with confirmation.
+- Retention limits (`None`, older than N days, max size MB) use draft-then-apply: destructive pruning requires explicit confirmation before any data is removed.
+- Disabling history stops recording without deleting existing data; re-enabling reconnects to the same database.
+
 ## [0.5.0] - 2026-08-27
 
 Highlights

@@ -8,7 +8,8 @@ use crate::theme;
 
 use super::{
     AppEvent, AppSettings, CombatantRow, Decoration, DungeonPanelLevel, EncounterSummary,
-    HistoryPanel, HistoryPanelLevel, IdleScene, LimitBreakSummary, SettingsField, ViewMode,
+    HistoryPanel, HistoryPanelLevel, HistorySettingsPanel, IdleScene, LimitBreakSummary,
+    SettingsField, ViewMode,
 };
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -25,6 +26,10 @@ pub struct AppSnapshot {
     pub show_settings: bool,
     pub settings_cursor: SettingsField,
     pub history: HistoryPanel,
+    #[serde(default, skip)]
+    pub history_settings: HistorySettingsPanel,
+    #[serde(default)]
+    pub archive_count: usize,
     pub show_idle_overlay: bool,
     pub error: Option<AppError>,
     pub dungeon_active_zone: Option<String>,
@@ -47,6 +52,8 @@ pub struct AppState {
     pub show_settings: bool,
     pub settings_cursor: SettingsField,
     pub history: HistoryPanel,
+    pub history_settings: HistorySettingsPanel,
+    pub archive_count: usize,
     pub show_idle_overlay: bool,
     pub error: Option<AppError>,
     pub dungeon_active_zone: Option<String>,
@@ -71,6 +78,8 @@ impl Default for AppState {
             show_settings: false,
             settings_cursor: SettingsField::default(),
             history: HistoryPanel::default(),
+            history_settings: HistorySettingsPanel::default(),
+            archive_count: 0,
             show_idle_overlay: true,
             error: None,
             dungeon_active_zone: None,
@@ -245,6 +254,8 @@ impl AppState {
             show_settings: self.show_settings,
             settings_cursor: self.settings_cursor,
             history: self.history.clone(),
+            history_settings: self.history_settings.clone(),
+            archive_count: self.archive_count,
             show_idle_overlay: self.show_idle_overlay,
             error: self.error.clone(),
             dungeon_active_zone: self.dungeon_active_zone.clone(),
@@ -407,6 +418,7 @@ impl AppState {
                     false
                 }
             }
+            SettingsField::HistorySettings => false,
         }
     }
 
@@ -455,6 +467,13 @@ impl AppState {
     }
 
     pub fn toggle_history(&mut self) -> bool {
+        if !self.settings.history_enabled && self.history.viewing_archive.is_none() {
+            self.error = Some(crate::errors::AppError::new(
+                crate::errors::AppErrorKind::History,
+                "History is disabled".to_string(),
+            ));
+            return false;
+        }
         if self.history.visible {
             self.history.visible = false;
             self.history.reset();

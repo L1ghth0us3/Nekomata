@@ -17,7 +17,7 @@
   - `Decor: none` — no extra decoration (compact one-line rows)
 - **Themes**: Switch among bundled palettes in settings, or drop extra `.theme` files next to the binary
 - **Limit Break display**: Show LB caster and damage as a dedicated panel, as a DPS table row, or hide it
-- **Settings management**: Persistent configuration through config file and/or TUI settings pane
+- **Settings management**: Persistent configuration through config file and/or TUI settings pane (including nested **History Settings** for recording on/off, retention limits, backups, and archive browsing)
 - **Idle mode**: Configurable idle detection with overlay toggle to peek at last encounter
 - **Dungeon Mode**: Aggregate encounters into single dungeon runs while preserving individual encounter details
 - **Modular architecture**: Clean, maintainable codebase with separated concerns
@@ -129,7 +129,7 @@ Limit Break casts are parsed from ability log lines. In settings, **Limit break 
 ### Configuration & Persistence
 - **Config location**: Settings are written to `~/.config/nekomata/nekomata.config` on Linux/macOS (or `%APPDATA%\nekomata\nekomata.config` on Windows)
 - **Environment variables**: Set `NEKOMATA_CONFIG_DIR` to override the config directory, or `NEKOMATA_DUNGEON_CATALOG` to specify a custom dungeon catalog path (the catalog is otherwise embedded in the binary)
-- **History storage**: Encounter history is stored in a sled-backed database at `~/.config/nekomata/history/encounters.sled` (or equivalent in your config directory)
+- **History storage**: Encounter history is stored in a sled-backed database at `~/.config/nekomata/history/encounters.sled` (or equivalent in your config directory). Manual backups are copied to `history/archives/<name>/`. Disabling history in History Settings stops recording without deleting existing data.
 
 ### History Panel
 - Press `h` to switch into the history view
