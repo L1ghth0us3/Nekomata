@@ -6,27 +6,17 @@
 
 **Nekomata** is a rust-based, dependency-light DPS meter for FFXIV that connects to the IINACT plugin over OverlayPlugin's WebSocket API and renders a kagerou-style table using ratatui.
 
-## Features
-- **Live combat data** displayed directly in your terminal with real-time updates
-- **Dual view modes**: Swap between DPS and Heal modes with a single keypress
-- **Encounter history**: Saves encounters in a sorted history list with a dedicated history panel
-- **History views**: Swap between encounter history and dungeon-run history (`Tab`), and between DPS and Heal inside a record (`m`)
-- **Visual decorations**: Cycle through three decoration styles (cycle with `d`):
-  - `Decor: underline` — thin role-colored bar directly under each entry (two-line rows)
-  - `Decor: background` — role-colored background meter behind each entry (one-line rows)
-  - `Decor: none` — no extra decoration (compact one-line rows)
-- **Themes**: Switch among bundled palettes in settings, or drop extra `.theme` files next to the binary
-- **Limit Break display**: Show LB caster and damage as a dedicated panel, as a DPS table row, or hide it
-- **Settings management**: Persistent configuration through config file and/or TUI settings pane (including nested **History Settings** for recording on/off, retention limits, backups, and archive browsing)
-- **Idle mode**: Configurable idle detection with overlay toggle to peek at last encounter
-- **Dungeon Mode**: Aggregate encounters into single dungeon runs while preserving individual encounter details
-- **Modular architecture**: Clean, maintainable codebase with separated concerns
+## How to Install
 
-## Install
+Nekomata reads combat data from [IINACT](https://www.iinact.com/). Install that first, then grab a Nekomata release.
 
-### Prebuilt binaries (v0.5+)
+### 1. Install IINACT
 
-Download the archive for your OS from the [GitHub Releases](https://github.com/L1ghth0us3/Nekomata/releases) page:
+Follow the official [IINACT installation guide](https://www.iinact.com/installation/). Once IINACT is installed and enabled, it exposes OverlayPlugin's WebSocket API (default: `ws://127.0.0.1:10501/ws`), which Nekomata connects to automatically.
+
+### 2. Install Nekomata
+
+Download the archive for your OS from the [latest GitHub Release](https://github.com/L1ghth0us3/Nekomata/releases/latest) (currently **v0.5**):
 
 - Linux x86_64 (glibc): `nekomata-v0.5-linux-x86_64.tar.gz`
 - Windows x86_64: `nekomata-v0.5-windows-x86_64.zip`
@@ -46,6 +36,24 @@ cd nekomata-v0.5-linux-x86_64
 ```
 
 On Windows, a modern terminal (Windows Terminal) is recommended.
+
+To build from source instead, see [Build from source & Run](#build-from-source--run).
+
+## Features
+- **Live combat data** displayed directly in your terminal with real-time updates
+- **Dual view modes**: Swap between DPS and Heal modes with a single keypress
+- **Encounter history**: Saves encounters in a sorted history list with a dedicated history panel
+- **History views**: Swap between encounter history and dungeon-run history (`Tab`), and between DPS and Heal inside a record (`m`)
+- **Visual decorations**: Cycle through three decoration styles (cycle with `d`):
+  - `Decor: underline` — thin role-colored bar directly under each entry (two-line rows)
+  - `Decor: background` — role-colored background meter behind each entry (one-line rows)
+  - `Decor: none` — no extra decoration (compact one-line rows)
+- **Themes**: Switch among bundled palettes in settings, or drop extra `.theme` files next to the binary
+- **Limit Break display**: Show LB caster and damage as a dedicated panel, as a DPS table row, or hide it
+- **Settings management**: Persistent configuration through config file and/or TUI settings pane (including nested **History Settings** for recording on/off, retention limits, backups, and archive browsing)
+- **Idle mode**: Configurable idle detection with overlay toggle to peek at last encounter
+- **Dungeon Mode**: Aggregate encounters into single dungeon runs while preserving individual encounter details
+- **Modular architecture**: Clean, maintainable codebase with separated concerns
 
 ## Dungeon Mode
 
