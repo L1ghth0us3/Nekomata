@@ -7,7 +7,10 @@ mod state;
 mod types;
 mod view;
 
-pub use history_panel::{DungeonPanelLevel, HistoryPanel, HistoryPanelLevel, HistoryView};
+pub use history_panel::{
+    DungeonPanelLevel, HistoryConfirm, HistoryDeleteAction, HistoryPanel, HistoryPanelLevel,
+    HistoryView,
+};
 pub use history_settings_panel::{
     ArchiveBrowser, ConfirmAction, ConfirmDialog, ConfirmFocus, FilenamePrompt,
     HistorySettingsField, HistorySettingsPanel,

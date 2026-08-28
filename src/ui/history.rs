@@ -22,6 +22,9 @@ pub fn draw_history(f: &mut Frame, s: &AppSnapshot, list_state: &mut ListState) 
 
     draw_header(f, chunks[0], s);
     draw_body(f, chunks[1], s, list_state);
+    if let Some(confirm) = &s.history.confirm {
+        draw_history_confirm(f, confirm);
+    }
     list_state.offset()
 }
 
@@ -33,22 +36,22 @@ fn draw_header(f: &mut Frame, area: Rect, s: &AppSnapshot) {
     } else {
         match (s.history.view, s.history.level, s.history.dungeon_level) {
             (HistoryView::Encounters, HistoryPanelLevel::Dates, _) => {
-                "Enter/Click ▸ view encounters · ↑/↓ scroll · Tab switches view"
+                "Enter/Click ▸ view encounters · Shift+D delete · ↑/↓ scroll · Tab switches view"
             }
             (HistoryView::Encounters, HistoryPanelLevel::Encounters, _) => {
-                "← dates · ↑/↓ scroll · Enter view details · Tab switches view"
+                "← dates · Shift+D delete · ↑/↓ scroll · Enter view details · Tab switches view"
             }
             (HistoryView::Encounters, HistoryPanelLevel::EncounterDetail, _) => {
-                "← encounters · ↑/↓ switch encounter · m toggles DPS/Heal · Tab switches view"
+                "← encounters · Shift+D delete · ↑/↓ switch encounter · m toggles DPS/Heal · Tab switches view"
             }
             (HistoryView::Dungeons, _, DungeonPanelLevel::Dates) => {
-                "Enter/Click ▸ view runs · ↑/↓ scroll · Tab switches view"
+                "Enter/Click ▸ view runs · Shift+D delete · ↑/↓ scroll · Tab switches view"
             }
             (HistoryView::Dungeons, _, DungeonPanelLevel::Runs) => {
-                "← dates · ↑/↓ scroll · Enter view run · Tab switches view"
+                "← dates · Shift+D delete · ↑/↓ scroll · Enter view run · Tab switches view"
             }
             (HistoryView::Dungeons, _, DungeonPanelLevel::RunDetail) => {
-                "← runs · ↑/↓ select pull · Enter view pull · m toggles table · Tab switches view"
+                "← runs · Shift+D delete · ↑/↓ select pull · Enter view pull · m toggles table · Tab switches view"
             }
             (HistoryView::Dungeons, _, DungeonPanelLevel::EncounterDetail) => {
                 "← run detail · ↑/↓ switch pull · m toggles DPS/Heal · Tab switches view"
@@ -189,7 +192,7 @@ fn draw_dates(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &mut ListS
 
     f.render_stateful_widget(list, chunks[0], list_state);
 
-    let hint = Paragraph::new("Tab swaps view · Enter view encounters")
+    let hint = Paragraph::new("Tab swaps view · Enter view encounters · Shift+D delete")
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::NONE));
     f.render_widget(hint, chunks[1]);
@@ -241,7 +244,17 @@ fn draw_encounters(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &mut 
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, area, list_state);
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .split(area);
+
+    f.render_stateful_widget(list, chunks[0], list_state);
+
+    let hint = Paragraph::new("Enter view details · Shift+D delete")
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::NONE));
+    f.render_widget(hint, chunks[1]);
 }
 
 fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
@@ -287,7 +300,7 @@ fn draw_encounter_detail(f: &mut Frame, area: Rect, s: &AppSnapshot) {
             detail_mode: s.history.detail_mode,
             decoration: s.decoration,
             limit_break_mode: s.settings.limit_break_mode,
-            footer_hint: "← back · ↑/↓ switch encounter · m toggles DPS/Heal · Enter re-open",
+            footer_hint: "← back · ↑/↓ switch encounter · Shift+D delete · m toggles DPS/Heal",
         },
     );
 }
@@ -322,7 +335,7 @@ fn draw_dungeon_dates(f: &mut Frame, area: Rect, s: &AppSnapshot, list_state: &m
 
     f.render_stateful_widget(list, chunks[0], list_state);
 
-    let hint = Paragraph::new("Tab swaps view · Enter view runs")
+    let hint = Paragraph::new("Tab swaps view · Enter view runs · Shift+D delete")
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::NONE));
     f.render_widget(hint, chunks[1]);
@@ -552,10 +565,11 @@ fn draw_dungeon_run_detail(f: &mut Frame, area: Rect, s: &AppSnapshot, list_stat
         f.render_stateful_widget(list, layout[1], list_state);
     }
 
-    let instructions =
-        Paragraph::new("← runs · ↑/↓ select pull · Enter view pull · m toggles DPS/Heal")
-            .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::NONE));
+    let instructions = Paragraph::new(
+        "← runs · Shift+D delete · ↑/↓ select pull · Enter view pull · m toggles DPS/Heal",
+    )
+    .alignment(Alignment::Center)
+    .block(Block::default().borders(Borders::NONE));
     f.render_widget(instructions, layout[2]);
 }
 
@@ -660,4 +674,67 @@ fn format_party_signature(sig: &[String]) -> String {
         return "Unknown".to_string();
     }
     sig.join(", ")
+}
+
+fn draw_history_confirm(f: &mut Frame, confirm: &crate::model::HistoryConfirm) {
+    let area = centered_rect(70, 45, f.size());
+    f.render_widget(Clear, area);
+
+    let mut lines = vec![Line::default()];
+    for paragraph in confirm.message.lines() {
+        lines.push(Line::from(vec![Span::raw(paragraph.to_string())]));
+    }
+    lines.push(Line::default());
+
+    for (idx, (label, _)) in confirm.options.iter().enumerate() {
+        let style = if idx == confirm.focus {
+            title_style()
+        } else {
+            header_style()
+        };
+        let marker = if idx == confirm.focus { "▶" } else { " " };
+        lines.push(Line::from(vec![Span::styled(
+            format!("{marker} {label}"),
+            style,
+        )]));
+    }
+
+    lines.push(Line::default());
+    lines.push(Line::from(vec![Span::styled(
+        "↑/↓ choose · Enter confirm · Esc cancel",
+        header_style(),
+    )]));
+
+    let block = Block::default()
+        .title(Line::from(vec![Span::styled(
+            "Confirm Delete",
+            title_style(),
+        )]))
+        .borders(Borders::ALL);
+    f.render_widget(
+        Paragraph::new(lines)
+            .block(block)
+            .alignment(Alignment::Center),
+        area,
+    );
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(area);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }

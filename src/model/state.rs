@@ -229,6 +229,14 @@ impl AppState {
                 self.history.finish_load();
                 self.history.error = Some(message);
             }
+            AppEvent::HistoryDeleted {
+                action,
+                deleted_encounter_keys,
+            } => {
+                self.history.finish_load();
+                self.history.error = None;
+                self.history.apply_delete(&action, &deleted_encounter_keys);
+            }
             AppEvent::SystemError { error } => {
                 self.error = Some(error);
             }
@@ -515,5 +523,23 @@ impl AppState {
 
     pub fn history_back(&mut self) {
         self.history.back();
+    }
+
+    pub fn history_begin_delete(&mut self) -> bool {
+        self.history.begin_delete_confirm()
+    }
+
+    pub fn history_confirm_cycle(&mut self, delta: i32) {
+        if let Some(confirm) = self.history.confirm.as_mut() {
+            confirm.cycle_focus(delta);
+        }
+    }
+
+    pub fn history_cancel_confirm(&mut self) {
+        self.history.cancel_confirm();
+    }
+
+    pub fn history_take_confirm_action(&mut self) -> Option<crate::model::HistoryDeleteAction> {
+        self.history.take_confirm_action()
     }
 }

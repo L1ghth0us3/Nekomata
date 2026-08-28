@@ -11,6 +11,8 @@ use crate::history::{
     HistoryEncounterItem,
 };
 
+use super::history_panel::HistoryDeleteAction;
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EncounterSummary {
     pub title: String,
@@ -101,6 +103,10 @@ pub enum AppEvent {
     },
     HistoryError {
         message: String,
+    },
+    HistoryDeleted {
+        action: HistoryDeleteAction,
+        deleted_encounter_keys: Vec<Vec<u8>>,
     },
     SystemError {
         error: AppError,

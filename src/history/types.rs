@@ -239,22 +239,21 @@ pub(crate) fn encode_key(namespace: &str, timestamp_ms: u64, discriminator: u64)
 
 #[allow(dead_code)]
 pub(crate) fn decode_key(bytes: &[u8]) -> Option<HistoryKey> {
-    let mut parts = bytes.split(|b| *b == KEY_SEPARATOR);
-    let namespace = parts.next()?;
-    let timestamp_bytes = parts.next()?;
-    let discriminator_bytes = parts.next()?;
-    if parts.next().is_some() {
+    let sep1 = bytes.iter().position(|b| *b == KEY_SEPARATOR)?;
+    let namespace = String::from_utf8(bytes[..sep1].to_vec()).ok()?;
+    let rest = &bytes[sep1 + 1..];
+    if rest.len() != 17 {
         return None;
     }
-    if timestamp_bytes.len() != 8 || discriminator_bytes.len() != 8 {
+    if rest[8] != KEY_SEPARATOR {
         return None;
     }
     let mut ts_arr = [0u8; 8];
-    ts_arr.copy_from_slice(timestamp_bytes);
+    ts_arr.copy_from_slice(&rest[..8]);
     let mut disc_arr = [0u8; 8];
-    disc_arr.copy_from_slice(discriminator_bytes);
+    disc_arr.copy_from_slice(&rest[9..17]);
     Some(HistoryKey {
-        namespace: String::from_utf8(namespace.to_vec()).ok()?,
+        namespace,
         timestamp_ms: u64::from_be_bytes(ts_arr),
         discriminator: u64::from_be_bytes(disc_arr),
     })
@@ -272,12 +271,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn key_roundtrip() {
-        let key = HistoryKey::new("enc", 12345, 42);
+    fn key_roundtrip_with_separator_in_payload() {
+        let key = HistoryKey::new("enc", 0x1F1F_1F1F_1F1F_1F1F, 0x1F1F_1F1F_1F1F_1F1F);
         let encoded = key.as_bytes();
         let decoded = HistoryKey::from_bytes(&encoded).expect("decode key");
-        assert_eq!(decoded.namespace, "enc");
-        assert_eq!(decoded.timestamp_ms, 12345);
-        assert_eq!(decoded.discriminator, 42);
+        assert_eq!(decoded, key);
     }
 }

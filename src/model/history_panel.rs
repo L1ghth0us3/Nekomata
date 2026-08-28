@@ -4,6 +4,47 @@ use crate::history::{DungeonHistoryDay, DungeonHistoryItem, HistoryDay, HistoryE
 
 use super::ViewMode;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum HistoryDeleteAction {
+    Encounter {
+        key: Vec<u8>,
+        date_id: String,
+    },
+    EncounterDate {
+        date_id: String,
+    },
+    DungeonRun {
+        key: Vec<u8>,
+        date_id: String,
+        with_children: bool,
+    },
+    DungeonDate {
+        date_id: String,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub struct HistoryConfirm {
+    pub message: String,
+    pub options: Vec<(String, Option<HistoryDeleteAction>)>,
+    pub focus: usize,
+}
+
+impl HistoryConfirm {
+    pub fn cycle_focus(&mut self, delta: i32) {
+        let len = self.options.len();
+        if len == 0 {
+            return;
+        }
+        let next = (self.focus as i32 + delta).rem_euclid(len as i32);
+        self.focus = next as usize;
+    }
+
+    pub fn focused_action(&self) -> Option<&HistoryDeleteAction> {
+        self.options.get(self.focus)?.1.as_ref()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum HistoryPanelLevel {
     #[default]
@@ -59,6 +100,8 @@ pub struct HistoryPanel {
     pub dungeon_detail_mode: ViewMode,
     #[serde(default, skip)]
     pub viewing_archive: Option<String>,
+    #[serde(default, skip)]
+    pub confirm: Option<HistoryConfirm>,
 }
 
 impl Default for HistoryPanel {
@@ -82,6 +125,7 @@ impl Default for HistoryPanel {
             detail_mode: ViewMode::Dps,
             dungeon_detail_mode: ViewMode::Dps,
             viewing_archive: None,
+            confirm: None,
         }
     }
 }
@@ -102,6 +146,7 @@ impl HistoryPanel {
         self.detail_mode = ViewMode::Dps;
         self.dungeon_detail_mode = ViewMode::Dps;
         self.viewing_archive = None;
+        self.confirm = None;
         for day in &mut self.days {
             day.encounters.clear();
             day.encounters_loaded = false;
@@ -170,7 +215,7 @@ impl HistoryPanel {
     }
 
     pub fn move_selection(&mut self, delta: i32) {
-        if !self.visible || self.loading {
+        if !self.visible || self.loading || self.confirm.is_some() {
             return;
         }
         match self.view {
@@ -254,7 +299,7 @@ impl HistoryPanel {
     }
 
     pub fn toggle_mode(&mut self) {
-        if !self.visible || self.loading {
+        if !self.visible || self.loading || self.confirm.is_some() {
             return;
         }
         match self.view {
@@ -276,7 +321,7 @@ impl HistoryPanel {
     }
 
     pub fn toggle_view(&mut self) {
-        if !self.visible {
+        if !self.visible || self.confirm.is_some() {
             return;
         }
         self.loading = false;
@@ -296,7 +341,7 @@ impl HistoryPanel {
     }
 
     pub fn enter(&mut self) {
-        if !self.visible || self.loading {
+        if !self.visible || self.loading || self.confirm.is_some() {
             return;
         }
         match self.view {
@@ -357,7 +402,7 @@ impl HistoryPanel {
     }
 
     pub fn back(&mut self) {
-        if !self.visible {
+        if !self.visible || self.confirm.is_some() {
             return;
         }
         match self.view {
@@ -387,6 +432,324 @@ impl HistoryPanel {
             },
         }
     }
+
+    pub fn can_delete_at_current_level(&self) -> bool {
+        if !self.visible || self.loading || self.confirm.is_some() {
+            return false;
+        }
+        match self.view {
+            HistoryView::Encounters => match self.level {
+                HistoryPanelLevel::Dates => self
+                    .current_day()
+                    .map(|day| !day.encounter_ids.is_empty())
+                    .unwrap_or(false),
+                HistoryPanelLevel::Encounters | HistoryPanelLevel::EncounterDetail => {
+                    self.current_encounter().is_some()
+                }
+            },
+            HistoryView::Dungeons => match self.dungeon_level {
+                DungeonPanelLevel::Dates => self
+                    .current_dungeon_day()
+                    .map(|day| !day.run_ids.is_empty())
+                    .unwrap_or(false),
+                DungeonPanelLevel::Runs | DungeonPanelLevel::RunDetail => {
+                    self.current_dungeon_run().is_some()
+                }
+                DungeonPanelLevel::EncounterDetail => false,
+            },
+        }
+    }
+
+    pub fn begin_delete_confirm(&mut self) -> bool {
+        if !self.can_delete_at_current_level() {
+            return false;
+        }
+
+        let confirm = match self.view {
+            HistoryView::Encounters => match self.level {
+                HistoryPanelLevel::Dates => {
+                    let Some(day) = self.current_day() else {
+                        return false;
+                    };
+                    let count = day.encounter_ids.len();
+                    HistoryConfirm {
+                        message: format!(
+                            "Delete all {count} encounter{} on {}?",
+                            if count == 1 { "" } else { "s" },
+                            day.iso_date
+                        ),
+                        options: vec![
+                            ("Cancel".into(), None),
+                            (
+                                "Delete".into(),
+                                Some(HistoryDeleteAction::EncounterDate {
+                                    date_id: day.iso_date.clone(),
+                                }),
+                            ),
+                        ],
+                        focus: 0,
+                    }
+                }
+                HistoryPanelLevel::Encounters | HistoryPanelLevel::EncounterDetail => {
+                    let Some(day) = self.current_day() else {
+                        return false;
+                    };
+                    let Some(enc) = self.current_encounter() else {
+                        return false;
+                    };
+                    HistoryConfirm {
+                        message: format!("Delete encounter \"{}\"?", enc.display_title),
+                        options: vec![
+                            ("Cancel".into(), None),
+                            (
+                                "Delete".into(),
+                                Some(HistoryDeleteAction::Encounter {
+                                    key: enc.key.clone(),
+                                    date_id: day.iso_date.clone(),
+                                }),
+                            ),
+                        ],
+                        focus: 0,
+                    }
+                }
+            },
+            HistoryView::Dungeons => match self.dungeon_level {
+                DungeonPanelLevel::Dates => {
+                    let Some(day) = self.current_dungeon_day() else {
+                        return false;
+                    };
+                    let count = day.run_ids.len();
+                    HistoryConfirm {
+                        message: format!(
+                            "Delete all {count} dungeon run{} on {}?",
+                            if count == 1 { "" } else { "s" },
+                            day.iso_date
+                        ),
+                        options: vec![
+                            ("Cancel".into(), None),
+                            (
+                                "Delete".into(),
+                                Some(HistoryDeleteAction::DungeonDate {
+                                    date_id: day.iso_date.clone(),
+                                }),
+                            ),
+                        ],
+                        focus: 0,
+                    }
+                }
+                DungeonPanelLevel::Runs | DungeonPanelLevel::RunDetail => {
+                    let Some(day) = self.current_dungeon_day() else {
+                        return false;
+                    };
+                    let Some(run) = self.current_dungeon_run() else {
+                        return false;
+                    };
+                    let child_hint = if run.child_count > 0 {
+                        format!(
+                            "\n\nThis run includes {} child encounter{}.",
+                            run.child_count,
+                            if run.child_count == 1 { "" } else { "s" }
+                        )
+                    } else {
+                        String::new()
+                    };
+                    HistoryConfirm {
+                        message: format!("Delete dungeon run \"{}\"?{child_hint}", run.zone),
+                        options: vec![
+                            ("Cancel".into(), None),
+                            (
+                                "Delete run only".into(),
+                                Some(HistoryDeleteAction::DungeonRun {
+                                    key: run.key.clone(),
+                                    date_id: day.iso_date.clone(),
+                                    with_children: false,
+                                }),
+                            ),
+                            (
+                                "Delete run + encounters".into(),
+                                Some(HistoryDeleteAction::DungeonRun {
+                                    key: run.key.clone(),
+                                    date_id: day.iso_date.clone(),
+                                    with_children: true,
+                                }),
+                            ),
+                        ],
+                        focus: 0,
+                    }
+                }
+                DungeonPanelLevel::EncounterDetail => return false,
+            },
+        };
+
+        self.confirm = Some(confirm);
+        true
+    }
+
+    pub fn cancel_confirm(&mut self) {
+        self.confirm = None;
+    }
+
+    pub fn take_confirm_action(&mut self) -> Option<HistoryDeleteAction> {
+        let confirm = self.confirm.as_ref()?;
+        let action = confirm.focused_action()?.clone();
+        self.confirm = None;
+        Some(action)
+    }
+
+    pub fn apply_delete(
+        &mut self,
+        action: &HistoryDeleteAction,
+        deleted_encounter_keys: &[Vec<u8>],
+    ) {
+        match action {
+            HistoryDeleteAction::Encounter { key, date_id } => {
+                self.remove_encounter_from_day(date_id, key);
+            }
+            HistoryDeleteAction::EncounterDate { date_id } => {
+                self.remove_encounter_day(date_id);
+            }
+            HistoryDeleteAction::DungeonRun { key, date_id, .. } => {
+                self.remove_dungeon_run_from_day(date_id, key);
+                for child_key in deleted_encounter_keys {
+                    self.purge_encounter_key(child_key);
+                }
+            }
+            HistoryDeleteAction::DungeonDate { date_id } => {
+                self.remove_dungeon_day(date_id);
+            }
+        }
+    }
+
+    fn remove_encounter_from_day(&mut self, date_id: &str, key: &[u8]) {
+        let Some(day_idx) = self.days.iter().position(|day| day.iso_date == date_id) else {
+            return;
+        };
+        let day = &mut self.days[day_idx];
+        day.encounter_ids.retain(|existing| existing != key);
+        if day.encounters_loaded {
+            day.encounters.retain(|enc| enc.key != key);
+        }
+        day.encounter_count = day.encounter_ids.len();
+        day.label = format_day_label(date_id, day.encounter_count);
+
+        if day.encounter_ids.is_empty() {
+            self.days.remove(day_idx);
+            self.selected_day = self.selected_day.min(self.days.len().saturating_sub(1));
+            if self.level != HistoryPanelLevel::Dates {
+                self.level = HistoryPanelLevel::Dates;
+                self.selected_encounter = 0;
+            }
+            return;
+        }
+
+        if self.selected_encounter >= day.encounter_ids.len() {
+            self.selected_encounter = day.encounter_ids.len().saturating_sub(1);
+        }
+    }
+
+    fn remove_encounter_day(&mut self, date_id: &str) {
+        if let Some(idx) = self.days.iter().position(|day| day.iso_date == date_id) {
+            self.days.remove(idx);
+            self.selected_day = self.selected_day.min(self.days.len().saturating_sub(1));
+            self.selected_encounter = 0;
+            self.level = HistoryPanelLevel::Dates;
+        }
+    }
+
+    fn remove_dungeon_run_from_day(&mut self, date_id: &str, key: &[u8]) {
+        let Some(day_idx) = self
+            .dungeon_days
+            .iter()
+            .position(|day| day.iso_date == date_id)
+        else {
+            return;
+        };
+        let day = &mut self.dungeon_days[day_idx];
+        day.run_ids.retain(|existing| existing != key);
+        if day.runs_loaded {
+            day.runs.retain(|run| run.key != key);
+        }
+        day.run_count = day.run_ids.len();
+        day.label = format_dungeon_day_label(date_id, day.run_count);
+
+        if day.run_ids.is_empty() {
+            self.dungeon_days.remove(day_idx);
+            self.dungeon_selected_day = self
+                .dungeon_selected_day
+                .min(self.dungeon_days.len().saturating_sub(1));
+            if self.dungeon_level != DungeonPanelLevel::Dates {
+                self.dungeon_level = DungeonPanelLevel::Dates;
+                self.dungeon_selected_run = 0;
+            }
+            return;
+        }
+
+        if self.dungeon_selected_run >= day.run_ids.len() {
+            self.dungeon_selected_run = day.run_ids.len().saturating_sub(1);
+        }
+        if matches!(
+            self.dungeon_level,
+            DungeonPanelLevel::RunDetail | DungeonPanelLevel::EncounterDetail
+        ) {
+            self.dungeon_selected_child = 0;
+        }
+    }
+
+    fn remove_dungeon_day(&mut self, date_id: &str) {
+        if let Some(idx) = self
+            .dungeon_days
+            .iter()
+            .position(|day| day.iso_date == date_id)
+        {
+            self.dungeon_days.remove(idx);
+            self.dungeon_selected_day = self
+                .dungeon_selected_day
+                .min(self.dungeon_days.len().saturating_sub(1));
+            self.dungeon_selected_run = 0;
+            self.dungeon_selected_child = 0;
+            self.dungeon_level = DungeonPanelLevel::Dates;
+        }
+    }
+
+    fn purge_encounter_key(&mut self, key: &[u8]) {
+        for day in &mut self.days {
+            let had_key = day.encounter_ids.iter().any(|existing| existing == key);
+            if !had_key {
+                continue;
+            }
+            day.encounter_ids.retain(|existing| existing != key);
+            if day.encounters_loaded {
+                day.encounters.retain(|enc| enc.key != key);
+            }
+            day.encounter_count = day.encounter_ids.len();
+            day.label = format_day_label(&day.iso_date, day.encounter_count);
+        }
+        self.days.retain(|day| !day.encounter_ids.is_empty());
+        self.selected_day = self.selected_day.min(self.days.len().saturating_sub(1));
+    }
+}
+
+fn format_day_label(iso_date: &str, encounter_count: usize) -> String {
+    match chrono::NaiveDate::parse_from_str(iso_date, "%Y-%m-%d") {
+        Ok(date) => {
+            let weekday = date.format("%a");
+            format!(
+                "{} ({}) · {} encounters",
+                iso_date, weekday, encounter_count
+            )
+        }
+        Err(_) => format!("{} · {} encounters", iso_date, encounter_count),
+    }
+}
+
+fn format_dungeon_day_label(iso_date: &str, run_count: usize) -> String {
+    match chrono::NaiveDate::parse_from_str(iso_date, "%Y-%m-%d") {
+        Ok(date) => {
+            let weekday = date.format("%a");
+            format!("{} ({}) · {} runs", iso_date, weekday, run_count)
+        }
+        Err(_) => format!("{} · {} runs", iso_date, run_count),
+    }
 }
 
 #[cfg(test)]
@@ -408,5 +771,116 @@ mod tests {
         panel.finish_load();
         assert!(!panel.loading);
         assert_eq!(panel.pending_loads, 0);
+    }
+
+    #[test]
+    fn begin_delete_confirm_opens_for_encounter_list() {
+        let mut panel = HistoryPanel::default();
+        panel.visible = true;
+        panel.level = HistoryPanelLevel::Encounters;
+        panel.days.push(HistoryDay {
+            iso_date: "2025-01-01".into(),
+            label: "2025-01-01".into(),
+            encounter_count: 1,
+            encounters: vec![HistoryEncounterItem {
+                key: vec![1],
+                display_title: "Fight".into(),
+                base_title: "Fight".into(),
+                occurrence: 1,
+                time_label: "12:00".into(),
+                last_seen_ms: 1,
+                timestamp_label: "2025-01-01 12:00:00".into(),
+                record: None,
+            }],
+            encounter_ids: vec![vec![1]],
+            encounters_loaded: true,
+        });
+
+        assert!(panel.begin_delete_confirm());
+        assert!(panel.confirm.is_some());
+        let confirm = panel.confirm.as_ref().unwrap();
+        assert_eq!(confirm.options.len(), 2);
+    }
+
+    #[test]
+    fn apply_delete_removes_encounter_and_empty_day() {
+        let mut panel = HistoryPanel::default();
+        panel.level = HistoryPanelLevel::Encounters;
+        panel.days.push(HistoryDay {
+            iso_date: "2025-01-01".into(),
+            label: "2025-01-01".into(),
+            encounter_count: 1,
+            encounters: vec![HistoryEncounterItem {
+                key: vec![1],
+                display_title: "Fight".into(),
+                base_title: "Fight".into(),
+                occurrence: 1,
+                time_label: "12:00".into(),
+                last_seen_ms: 1,
+                timestamp_label: "2025-01-01 12:00:00".into(),
+                record: None,
+            }],
+            encounter_ids: vec![vec![1]],
+            encounters_loaded: true,
+        });
+
+        panel.apply_delete(
+            &HistoryDeleteAction::Encounter {
+                key: vec![1],
+                date_id: "2025-01-01".into(),
+            },
+            &[],
+        );
+
+        assert!(panel.days.is_empty());
+        assert_eq!(panel.level, HistoryPanelLevel::Dates);
+    }
+
+    #[test]
+    fn apply_delete_from_detail_stays_on_next_encounter() {
+        let mut panel = HistoryPanel::default();
+        panel.level = HistoryPanelLevel::EncounterDetail;
+        panel.selected_encounter = 0;
+        panel.days.push(HistoryDay {
+            iso_date: "2025-01-01".into(),
+            label: "2025-01-01".into(),
+            encounter_count: 2,
+            encounters: vec![
+                HistoryEncounterItem {
+                    key: vec![1],
+                    display_title: "Fight A".into(),
+                    base_title: "Fight A".into(),
+                    occurrence: 1,
+                    time_label: "12:00".into(),
+                    last_seen_ms: 1,
+                    timestamp_label: "2025-01-01 12:00:00".into(),
+                    record: None,
+                },
+                HistoryEncounterItem {
+                    key: vec![2],
+                    display_title: "Fight B".into(),
+                    base_title: "Fight B".into(),
+                    occurrence: 1,
+                    time_label: "12:30".into(),
+                    last_seen_ms: 2,
+                    timestamp_label: "2025-01-01 12:30:00".into(),
+                    record: None,
+                },
+            ],
+            encounter_ids: vec![vec![1], vec![2]],
+            encounters_loaded: true,
+        });
+
+        panel.apply_delete(
+            &HistoryDeleteAction::Encounter {
+                key: vec![1],
+                date_id: "2025-01-01".into(),
+            },
+            &[],
+        );
+
+        assert_eq!(panel.level, HistoryPanelLevel::EncounterDetail);
+        assert_eq!(panel.selected_encounter, 0);
+        assert_eq!(panel.current_encounter().unwrap().key, vec![2]);
     }
 }

@@ -141,9 +141,59 @@ impl HistoryStore {
         Ok(key)
     }
 
-    #[allow(dead_code)]
-    pub fn remove(&self, key: &HistoryKey) -> Result<()> {
-        self.remove_encounter_cascade(key)
+    pub fn remove_entry(&self, key_bytes: &[u8]) -> Result<()> {
+        let key = HistoryKey::from_bytes(key_bytes).context("Invalid history key")?;
+        match key.namespace() {
+            ENCOUNTER_NAMESPACE => self.remove_encounter_cascade(&key),
+            DUNGEON_NAMESPACE => self.remove_dungeon_cascade(&key),
+            other => anyhow::bail!("Unknown history namespace: {other}"),
+        }
+    }
+
+    pub fn remove_dungeon_run(
+        &self,
+        key_bytes: &[u8],
+        delete_children: bool,
+    ) -> Result<Vec<Vec<u8>>> {
+        let child_keys = if delete_children {
+            self.dungeon_runs
+                .get(key_bytes)
+                .context("Failed to read dungeon run for delete")?
+                .map(|bytes| {
+                    serde_cbor::from_slice::<DungeonAggregateRecord>(bytes.as_ref())
+                        .map(|record| record.child_keys)
+                })
+                .transpose()
+                .context("Failed to deserialize dungeon run for delete")?
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        self.remove_entry(key_bytes)?;
+
+        let mut deleted = Vec::new();
+        for child_key in child_keys {
+            if let Some(child) = HistoryKey::from_bytes(&child_key) {
+                if child.namespace() == ENCOUNTER_NAMESPACE {
+                    self.remove_encounter_cascade(&child)?;
+                    deleted.push(child_key);
+                }
+            }
+        }
+        Ok(deleted)
+    }
+
+    pub fn remove_date(&self, date_id: &str, namespace: &str) -> Result<()> {
+        let keys = self.keys_for_date_namespace(date_id, namespace)?;
+        for key in keys {
+            if key.namespace() == ENCOUNTER_NAMESPACE {
+                self.remove_encounter_cascade(&key)?;
+            } else if key.namespace() == DUNGEON_NAMESPACE {
+                self.remove_dungeon_cascade(&key)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn size_on_disk(&self) -> Result<u64> {
@@ -272,23 +322,26 @@ impl HistoryStore {
     }
 
     fn keys_for_date(&self, date_id: &str) -> Result<Vec<HistoryKey>> {
+        let mut keys = self.keys_for_date_namespace(date_id, ENCOUNTER_NAMESPACE)?;
+        keys.extend(self.keys_for_date_namespace(date_id, DUNGEON_NAMESPACE)?);
+        Ok(keys)
+    }
+
+    fn keys_for_date_namespace(&self, date_id: &str, namespace: &str) -> Result<Vec<HistoryKey>> {
+        let tree = match namespace {
+            ENCOUNTER_NAMESPACE => &self.date_index,
+            DUNGEON_NAMESPACE => &self.dungeon_dates,
+            other => anyhow::bail!("Unknown history namespace: {other}"),
+        };
+        let Some(bytes) = tree.get(date_id.as_bytes())? else {
+            return Ok(Vec::new());
+        };
+        let summary: DateSummaryRecord =
+            serde_cbor::from_slice(bytes.as_ref()).context("Failed to read date summary")?;
         let mut keys = Vec::new();
-        if let Some(bytes) = self.date_index.get(date_id.as_bytes())? {
-            let summary: DateSummaryRecord =
-                serde_cbor::from_slice(bytes.as_ref()).context("Failed to read date summary")?;
-            for key_bytes in summary.encounter_ids {
-                if let Some(key) = HistoryKey::from_bytes(&key_bytes) {
-                    keys.push(key);
-                }
-            }
-        }
-        if let Some(bytes) = self.dungeon_dates.get(date_id.as_bytes())? {
-            let summary: DateSummaryRecord = serde_cbor::from_slice(bytes.as_ref())
-                .context("Failed to read dungeon date summary")?;
-            for key_bytes in summary.encounter_ids {
-                if let Some(key) = HistoryKey::from_bytes(&key_bytes) {
-                    keys.push(key);
-                }
+        for key_bytes in summary.encounter_ids {
+            if let Some(key) = HistoryKey::from_bytes(&key_bytes) {
+                keys.push(key);
             }
         }
         Ok(keys)
@@ -835,8 +888,64 @@ mod tests {
     use crate::history::retention::{
         cutoff_ms_for_days, now_ms, HistoryLimitKind, HistoryRetentionPolicy,
     };
-    use crate::history::types::SCHEMA_VERSION;
+    use crate::history::types::{DungeonAggregateRecord, SCHEMA_VERSION};
     use crate::model::EncounterSummary;
+
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEMP_STORE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_store() -> (HistoryStore, PathBuf) {
+        let id = TEMP_STORE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let base = std::env::temp_dir().join(format!("nekomata-delete-{}-{id}", now_ms()));
+        std::fs::create_dir_all(&base).expect("create temp dir");
+        let db_path = base.join("encounters.sled");
+        let store = HistoryStore::open(&db_path).expect("open store");
+        (store, base)
+    }
+
+    fn make_encounter_record(title: &str, last_seen_ms: u64) -> EncounterRecord {
+        EncounterRecord {
+            version: SCHEMA_VERSION,
+            stored_ms: last_seen_ms,
+            first_seen_ms: last_seen_ms,
+            last_seen_ms,
+            encounter: EncounterSummary {
+                title: title.into(),
+                zone: "Zone".into(),
+                duration: "01:00".into(),
+                encdps: "100".into(),
+                damage: "1000".into(),
+                enchps: "0".into(),
+                healed: "0".into(),
+                is_active: false,
+            },
+            rows: Vec::new(),
+            raw_last: None,
+            snapshots: 1,
+            saw_active: true,
+            frames: Vec::new(),
+            lb_summary: None,
+        }
+    }
+
+    fn make_dungeon_record(child_keys: Vec<Vec<u8>>, last_seen_ms: u64) -> DungeonAggregateRecord {
+        let child_count = child_keys.len();
+        DungeonAggregateRecord {
+            version: SCHEMA_VERSION,
+            zone: "Sastasha".into(),
+            started_ms: last_seen_ms.saturating_sub(1_000),
+            last_seen_ms,
+            party_signature: vec!["Alice|NIN".into()],
+            total_duration_secs: 120,
+            total_damage: 10_000.0,
+            total_healed: 500.0,
+            total_encdps: 80.0,
+            child_keys,
+            child_titles: vec!["Pull 1".into(); child_count],
+            incomplete: false,
+        }
+    }
 
     fn make_summary(key: &[u8], base_title: &str, last_seen: u64) -> EncounterSummaryRecord {
         EncounterSummaryRecord {
@@ -951,5 +1060,104 @@ mod tests {
         };
         let plan = store.dry_run_retention(&policy).expect("dry run");
         assert_eq!(plan.encounter_count, 1);
+    }
+
+    #[test]
+    fn remove_entry_deletes_encounter() {
+        let (store, _base) = temp_store();
+        let key = store
+            .append(&make_encounter_record("Fight A", 1_735_689_600_000))
+            .expect("append");
+        assert_eq!(store.load_dates().expect("dates").len(), 1);
+
+        store.remove_entry(&key.as_bytes()).expect("remove");
+        store.flush().expect("flush");
+
+        assert!(store.load_dates().expect("dates").is_empty());
+        assert!(store.load_encounter_record(&key.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn remove_dungeon_run_without_children_keeps_encounters() {
+        let (store, _base) = temp_store();
+        let child_key = store
+            .append(&make_encounter_record("Pull 1", 1_735_689_600_000))
+            .expect("append child");
+        let run_key = store
+            .append_dungeon(&make_dungeon_record(
+                vec![child_key.as_bytes()],
+                1_735_689_600_000,
+            ))
+            .expect("append run");
+
+        let deleted = store
+            .remove_dungeon_run(&run_key.as_bytes(), false)
+            .expect("remove run");
+        store.flush().expect("flush");
+
+        assert!(deleted.is_empty());
+        assert!(store.load_dungeon_days().expect("dungeon days").is_empty());
+        assert_eq!(store.load_dates().expect("dates").len(), 1);
+        store
+            .load_encounter_record(&child_key.as_bytes())
+            .expect("child remains");
+    }
+
+    #[test]
+    fn remove_dungeon_run_with_children_deletes_encounters() {
+        let (store, _base) = temp_store();
+        let child_key = store
+            .append(&make_encounter_record("Pull 1", 1_735_689_600_000))
+            .expect("append child");
+        let run_key = store
+            .append_dungeon(&make_dungeon_record(
+                vec![child_key.as_bytes()],
+                1_735_689_600_000,
+            ))
+            .expect("append run");
+
+        let deleted = store
+            .remove_dungeon_run(&run_key.as_bytes(), true)
+            .expect("remove run");
+        store.flush().expect("flush");
+
+        assert_eq!(deleted.len(), 1);
+        assert!(store.load_dungeon_days().expect("dungeon days").is_empty());
+        assert!(store.load_dates().expect("dates").is_empty());
+    }
+
+    #[test]
+    fn remove_date_is_namespace_scoped() {
+        let (store, _base) = temp_store();
+        let ts = 1_735_689_600_000;
+        let child_key = store
+            .append(&make_encounter_record("Pull 1", ts))
+            .expect("append child");
+        store
+            .append_dungeon(&make_dungeon_record(vec![child_key.as_bytes()], ts))
+            .expect("append run");
+        let other = store
+            .append(&make_encounter_record("Other Fight", ts + 86_400_000))
+            .expect("append other");
+
+        store
+            .remove_date("2025-01-01", DUNGEON_NAMESPACE)
+            .expect("remove dungeon date");
+        store.flush().expect("flush");
+
+        assert!(store.load_dungeon_days().expect("dungeon days").is_empty());
+        assert_eq!(store.load_dates().expect("dates").len(), 2);
+
+        store
+            .remove_date("2025-01-01", ENCOUNTER_NAMESPACE)
+            .expect("remove encounter date");
+        store.flush().expect("flush");
+
+        let remaining = store.load_dates().expect("dates");
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].encounter_count, 1);
+        store
+            .load_encounter_record(&other.as_bytes())
+            .expect("other remains");
     }
 }

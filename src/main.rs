@@ -30,9 +30,10 @@ mod ws_client;
 
 use history::{
     determine_history_task, handle_history_mouse, handle_history_settings_input,
-    open_history_settings_panel, refresh_archive_count, shared_retention_state, spawn_history_task,
-    spawn_initial_history_loads, try_close_history_settings, HistoryRetentionPolicy,
-    HistorySession, HistorySessionHandle, HistorySettingsContext, HistoryStore,
+    open_history_settings_panel, refresh_archive_count, shared_retention_state,
+    spawn_history_delete, spawn_history_task, spawn_initial_history_loads,
+    try_close_history_settings, HistoryRetentionPolicy, HistorySession, HistorySessionHandle,
+    HistorySettingsContext, HistoryStore,
 };
 use model::{AppEvent, AppSettings, AppState, SettingsField, WS_URL_DEFAULT};
 use tracing::level_filters::LevelFilter;
@@ -148,6 +149,10 @@ async fn main() -> Result<()> {
 
                     match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => {
+                            if s.history.visible && s.history.confirm.is_some() {
+                                s.history_cancel_confirm();
+                                continue;
+                            }
                             if try_close_history_settings(&mut s).await {
                                 continue;
                             }
@@ -205,28 +210,67 @@ async fn main() -> Result<()> {
                         }
                         _ => {
                             let mut pending_task = None;
+                            let mut pending_delete = None;
                             let history_active = if s.history.visible {
-                                match key.code {
-                                    KeyCode::Up => s.history_move_selection(-1),
-                                    KeyCode::Down => s.history_move_selection(1),
-                                    KeyCode::PageUp => s.history_move_selection(-5),
-                                    KeyCode::PageDown => s.history_move_selection(5),
-                                    KeyCode::Left | KeyCode::Backspace => s.history_back(),
-                                    KeyCode::Right | KeyCode::Enter => s.history_enter(),
-                                    KeyCode::Char('m') | KeyCode::Char('M') => {
-                                        s.history_toggle_mode()
+                                if s.history.confirm.is_some() {
+                                    match key.code {
+                                        KeyCode::Up => s.history_confirm_cycle(-1),
+                                        KeyCode::Down => s.history_confirm_cycle(1),
+                                        KeyCode::Esc => s.history_cancel_confirm(),
+                                        KeyCode::Enter => {
+                                            let is_cancel = s
+                                                .history
+                                                .confirm
+                                                .as_ref()
+                                                .is_some_and(|confirm| confirm.focus == 0);
+                                            if is_cancel {
+                                                s.history_cancel_confirm();
+                                            } else if let Some(action) =
+                                                s.history_take_confirm_action()
+                                            {
+                                                s.history_begin_load();
+                                                pending_delete = Some(action);
+                                            }
+                                        }
+                                        _ => {}
                                     }
-                                    KeyCode::Tab => s.history_toggle_view(),
-                                    KeyCode::Char('t') | KeyCode::Char('T') => {
-                                        s.history_toggle_view()
+                                } else {
+                                    match key.code {
+                                        KeyCode::Up => s.history_move_selection(-1),
+                                        KeyCode::Down => s.history_move_selection(1),
+                                        KeyCode::PageUp => s.history_move_selection(-5),
+                                        KeyCode::PageDown => s.history_move_selection(5),
+                                        KeyCode::Left | KeyCode::Backspace => s.history_back(),
+                                        KeyCode::Right | KeyCode::Enter => s.history_enter(),
+                                        KeyCode::Char('m') | KeyCode::Char('M') => {
+                                            s.history_toggle_mode()
+                                        }
+                                        KeyCode::Tab => s.history_toggle_view(),
+                                        KeyCode::Char('t') | KeyCode::Char('T') => {
+                                            s.history_toggle_view()
+                                        }
+                                        KeyCode::Char('D')
+                                            if key.modifiers.contains(KeyModifiers::SHIFT) =>
+                                        {
+                                            s.history_begin_delete();
+                                        }
+                                        _ => {}
                                     }
-                                    _ => {}
+                                    pending_task = determine_history_task(&mut s);
                                 }
-                                pending_task = determine_history_task(&mut s);
                                 true
                             } else {
                                 false
                             };
+
+                            if let Some(action) = pending_delete {
+                                if let Some(store) = active_store(&hs_ctx, &history_session).await {
+                                    spawn_history_delete(store, event_tx.clone(), action);
+                                } else {
+                                    s.history.finish_load();
+                                    s.history.error = Some("History store unavailable".to_string());
+                                }
+                            }
 
                             if let Some(task) = pending_task {
                                 if let Some(store) = active_store(&hs_ctx, &history_session).await {

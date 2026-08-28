@@ -14,7 +14,8 @@ pub use archives::{
     create_backup, default_backup_name, delete_archive, format_bytes, list_archives, ArchiveEntry,
 };
 pub use loader::{
-    determine_history_task, handle_history_mouse, spawn_history_task, spawn_initial_history_loads,
+    determine_history_task, handle_history_mouse, spawn_history_delete, spawn_history_task,
+    spawn_initial_history_loads,
 };
 pub use retention::{HistoryLimitKind, HistoryRetentionPolicy, RetentionPlan};
 pub use session::{HistorySession, HistorySessionHandle};

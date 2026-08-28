@@ -4,8 +4,11 @@ use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task;
 
+use crate::history::types::{DUNGEON_NAMESPACE, ENCOUNTER_NAMESPACE};
 use crate::history::HistoryStore;
-use crate::model::{AppEvent, AppState, DungeonPanelLevel, HistoryPanelLevel, HistoryView};
+use crate::model::{
+    AppEvent, AppState, DungeonPanelLevel, HistoryDeleteAction, HistoryPanelLevel, HistoryView,
+};
 
 pub const HISTORY_LIST_OFFSET: u16 = 4;
 
@@ -69,7 +72,7 @@ pub async fn handle_history_mouse(
     list_offset: usize,
 ) {
     let mut s = state.write().await;
-    if !s.history.visible || s.history.loading {
+    if !s.history.visible || s.history.loading || s.history.confirm.is_some() {
         return;
     }
 
@@ -331,6 +334,60 @@ pub fn spawn_history_task(
                 },
                 |message| AppEvent::HistoryError { message },
             )
+        }
+    }
+}
+
+pub fn spawn_history_delete(
+    store: Arc<HistoryStore>,
+    tx: UnboundedSender<AppEvent>,
+    action: HistoryDeleteAction,
+) {
+    tokio::spawn(async move {
+        let action_for_event = action.clone();
+        let result = task::spawn_blocking(move || execute_history_delete(&store, &action)).await;
+        let event = match result {
+            Ok(Ok(deleted_encounter_keys)) => AppEvent::HistoryDeleted {
+                action: action_for_event,
+                deleted_encounter_keys,
+            },
+            Ok(Err(err)) => AppEvent::HistoryError {
+                message: err.to_string(),
+            },
+            Err(err) => AppEvent::HistoryError {
+                message: format!("History delete failed: {err}"),
+            },
+        };
+        let _ = tx.send(event);
+    });
+}
+
+fn execute_history_delete(
+    store: &HistoryStore,
+    action: &HistoryDeleteAction,
+) -> anyhow::Result<Vec<Vec<u8>>> {
+    match action {
+        HistoryDeleteAction::Encounter { key, .. } => {
+            store.remove_entry(key)?;
+            store.flush()?;
+            Ok(Vec::new())
+        }
+        HistoryDeleteAction::EncounterDate { date_id } => {
+            store.remove_date(date_id, ENCOUNTER_NAMESPACE)?;
+            store.flush()?;
+            Ok(Vec::new())
+        }
+        HistoryDeleteAction::DungeonRun {
+            key, with_children, ..
+        } => {
+            let deleted = store.remove_dungeon_run(key, *with_children)?;
+            store.flush()?;
+            Ok(deleted)
+        }
+        HistoryDeleteAction::DungeonDate { date_id } => {
+            store.remove_date(date_id, DUNGEON_NAMESPACE)?;
+            store.flush()?;
+            Ok(Vec::new())
         }
     }
 }
