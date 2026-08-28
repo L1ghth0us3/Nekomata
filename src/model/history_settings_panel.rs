@@ -7,60 +7,43 @@ pub enum HistorySettingsField {
     Recording,
     LimitKind,
     LimitValue,
-    Separator,
     CreateBackup,
     BrowseArchives,
     DeleteCurrent,
 }
 
 impl HistorySettingsField {
-    pub fn is_selectable(self) -> bool {
-        !matches!(self, Self::Separator)
-    }
-
-    pub fn next(mut self, limit_kind: HistoryLimitKind) -> Self {
-        loop {
-            self = match self {
-                Self::Recording => Self::LimitKind,
-                Self::LimitKind => {
-                    if limit_kind == HistoryLimitKind::None {
-                        Self::CreateBackup
-                    } else {
-                        Self::LimitValue
-                    }
+    pub fn next(self, limit_kind: HistoryLimitKind) -> Self {
+        match self {
+            Self::Recording => Self::LimitKind,
+            Self::LimitKind => {
+                if limit_kind == HistoryLimitKind::None {
+                    Self::CreateBackup
+                } else {
+                    Self::LimitValue
                 }
-                Self::LimitValue => Self::CreateBackup,
-                Self::CreateBackup => Self::BrowseArchives,
-                Self::BrowseArchives => Self::DeleteCurrent,
-                Self::DeleteCurrent => Self::Recording,
-                Self::Separator => Self::CreateBackup,
-            };
-            if self.is_selectable() {
-                return self;
             }
+            Self::LimitValue => Self::CreateBackup,
+            Self::CreateBackup => Self::BrowseArchives,
+            Self::BrowseArchives => Self::DeleteCurrent,
+            Self::DeleteCurrent => Self::Recording,
         }
     }
 
-    pub fn prev(mut self, limit_kind: HistoryLimitKind) -> Self {
-        loop {
-            self = match self {
-                Self::Recording => Self::DeleteCurrent,
-                Self::LimitKind => Self::Recording,
-                Self::LimitValue => Self::LimitKind,
-                Self::CreateBackup => {
-                    if limit_kind == HistoryLimitKind::None {
-                        Self::LimitKind
-                    } else {
-                        Self::LimitValue
-                    }
+    pub fn prev(self, limit_kind: HistoryLimitKind) -> Self {
+        match self {
+            Self::Recording => Self::DeleteCurrent,
+            Self::LimitKind => Self::Recording,
+            Self::LimitValue => Self::LimitKind,
+            Self::CreateBackup => {
+                if limit_kind == HistoryLimitKind::None {
+                    Self::LimitKind
+                } else {
+                    Self::LimitValue
                 }
-                Self::BrowseArchives => Self::CreateBackup,
-                Self::DeleteCurrent => Self::BrowseArchives,
-                Self::Separator => Self::LimitKind,
-            };
-            if self.is_selectable() {
-                return self;
             }
+            Self::BrowseArchives => Self::CreateBackup,
+            Self::DeleteCurrent => Self::BrowseArchives,
         }
     }
 }
@@ -102,7 +85,7 @@ pub struct ArchiveBrowser {
     pub error: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct HistorySettingsPanel {
     pub visible: bool,
     pub cursor: HistorySettingsField,
@@ -115,28 +98,8 @@ pub struct HistorySettingsPanel {
     pub archive_browser: Option<ArchiveBrowser>,
 }
 
-impl Default for HistorySettingsPanel {
-    fn default() -> Self {
-        Self {
-            visible: false,
-            cursor: HistorySettingsField::default(),
-            draft_limit: HistoryRetentionPolicy::default(),
-            committed_limit: HistoryRetentionPolicy::default(),
-            live_db_size: None,
-            status_message: None,
-            confirm: None,
-            filename_prompt: None,
-            archive_browser: None,
-        }
-    }
-}
-
 impl HistorySettingsPanel {
-    pub fn open(
-        &mut self,
-        committed: HistoryRetentionPolicy,
-        live_db_size: Option<u64>,
-    ) {
+    pub fn open(&mut self, committed: HistoryRetentionPolicy, live_db_size: Option<u64>) {
         self.visible = true;
         self.cursor = HistorySettingsField::Recording;
         self.committed_limit = committed.clone();

@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -44,7 +45,7 @@ pub fn list_archives() -> Result<Vec<ArchiveEntry>> {
             modified_ms,
         });
     }
-    entries.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms));
+    entries.sort_by_key(|entry| Reverse(entry.modified_ms));
     Ok(entries)
 }
 
@@ -64,9 +65,8 @@ pub fn create_backup(name: &str) -> Result<PathBuf> {
     }
     let dest = config::history_archive_path(&sanitized);
     if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).with_context(|| {
-            format!("Unable to create archive directory {}", parent.display())
-        })?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("Unable to create archive directory {}", parent.display()))?;
     }
     copy_dir_all(&source, &dest)?;
     Ok(dest)
@@ -77,15 +77,15 @@ pub fn delete_archive(name: &str) -> Result<()> {
     if !path.exists() {
         anyhow::bail!("Archive not found");
     }
-    fs::remove_dir_all(&path).with_context(|| format!("Failed to delete archive {}", path.display()))
+    fs::remove_dir_all(&path)
+        .with_context(|| format!("Failed to delete archive {}", path.display()))
 }
 
 pub fn delete_live_history() -> Result<()> {
     let path = config::history_db_path();
     if path.exists() {
-        fs::remove_dir_all(&path).with_context(|| {
-            format!("Failed to delete live history at {}", path.display())
-        })?;
+        fs::remove_dir_all(&path)
+            .with_context(|| format!("Failed to delete live history at {}", path.display()))?;
     }
     Ok(())
 }

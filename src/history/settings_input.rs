@@ -5,15 +5,13 @@ use tokio::sync::mpsc;
 
 use crate::config::{self, AppConfig};
 use crate::history::{
-    apply_retention_confirmed, begin_apply_limit, build_delete_archive_confirm,
+    adjust_draft_limit, apply_retention_confirmed, begin_apply_limit, build_delete_archive_confirm,
     build_delete_live_confirm, build_discard_draft_confirm, commit_retention_policy,
     dry_run_for_policy, load_archive_entries, perform_backup, refresh_archive_count,
-    remove_archive, spawn_initial_history_loads, sync_retention_state, adjust_draft_limit,
-    HistorySessionHandle, HistoryStore, RetentionState,
+    remove_archive, spawn_initial_history_loads, sync_retention_state, HistorySessionHandle,
+    HistoryStore, RetentionState,
 };
-use crate::model::{
-    AppEvent, AppState, ConfirmAction, ConfirmFocus, HistorySettingsField,
-};
+use crate::model::{AppEvent, AppState, ConfirmAction, ConfirmFocus, HistorySettingsField};
 
 pub struct HistorySettingsContext {
     pub session: HistorySessionHandle,
@@ -96,16 +94,12 @@ fn handle_filename_key(
             match perform_backup(&name, &mut ctx.app_cfg) {
                 Ok(path) => {
                     panel.filename_prompt = None;
-                    panel.status_message = Some(format!(
-                        "Backup succeeded: {}",
-                        path.display()
-                    ));
+                    panel.status_message = Some(format!("Backup succeeded: {}", path.display()));
                     refresh_archive_count(state);
                 }
                 Err(err) => {
                     panel.filename_prompt = None;
-                    panel.status_message =
-                        Some(format!("Backup failed: {err}"));
+                    panel.status_message = Some(format!("Backup failed: {err}"));
                 }
             }
         }
@@ -227,12 +221,10 @@ async fn handle_main_panel_key(
             HistorySettingsField::CreateBackup => {
                 panel.open_filename_prompt();
             }
-            HistorySettingsField::BrowseArchives => {
-                match load_archive_entries() {
-                    Ok(entries) => panel.open_archive_browser(entries),
-                    Err(err) => panel.status_message = Some(err.to_string()),
-                }
-            }
+            HistorySettingsField::BrowseArchives => match load_archive_entries() {
+                Ok(entries) => panel.open_archive_browser(entries),
+                Err(err) => panel.status_message = Some(err.to_string()),
+            },
             HistorySettingsField::DeleteCurrent => {
                 build_delete_live_confirm(panel, &ctx.app_cfg, state.archive_count > 0);
             }
@@ -318,27 +310,24 @@ async fn execute_confirm(
             panel.draft_limit = panel.committed_limit.clone();
             panel.close();
         }
-        ConfirmAction::DeleteArchive { name } => {
-            match remove_archive(&name) {
-                Ok(()) => {
-                    refresh_archive_count(state);
-                    if let Some(browser) = state.history_settings.archive_browser.as_mut() {
-                        browser.entries.retain(|e| e.name != name);
-                        if browser.selected >= browser.entries.len() {
-                            browser.selected = browser.entries.len().saturating_sub(1);
-                        }
-                        browser.error = None;
+        ConfirmAction::DeleteArchive { name } => match remove_archive(&name) {
+            Ok(()) => {
+                refresh_archive_count(state);
+                if let Some(browser) = state.history_settings.archive_browser.as_mut() {
+                    browser.entries.retain(|e| e.name != name);
+                    if browser.selected >= browser.entries.len() {
+                        browser.selected = browser.entries.len().saturating_sub(1);
                     }
-                    state.history_settings.status_message =
-                        Some(format!("Deleted archive {name}"));
+                    browser.error = None;
                 }
-                Err(err) => {
-                    if let Some(browser) = state.history_settings.archive_browser.as_mut() {
-                        browser.error = Some(err.to_string());
-                    }
+                state.history_settings.status_message = Some(format!("Deleted archive {name}"));
+            }
+            Err(err) => {
+                if let Some(browser) = state.history_settings.archive_browser.as_mut() {
+                    browser.error = Some(err.to_string());
                 }
             }
-        }
+        },
         ConfirmAction::DeleteLiveHistory => {
             let reopen = state.settings.history_enabled;
             match ctx.session.delete_live_and_reopen(reopen).await {

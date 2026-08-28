@@ -5,9 +5,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 use crate::history::{format_bytes, HistoryLimitKind};
-use crate::model::{
-    AppSnapshot, ConfirmFocus, HistorySettingsField, HistorySettingsPanel,
-};
+use crate::model::{AppSnapshot, ConfirmFocus, HistorySettingsField, HistorySettingsPanel};
 use crate::theme::{header_style, title_style, value_style};
 
 pub(super) fn draw(f: &mut Frame, snapshot: &AppSnapshot) {
@@ -47,7 +45,10 @@ fn draw_main_panel(f: &mut Frame, snapshot: &AppSnapshot, panel: &HistorySetting
     lines.push(Line::from(vec![Span::styled(size_label, header_style())]));
     if let Some(msg) = &panel.status_message {
         for line in msg.lines() {
-            lines.push(Line::from(vec![Span::styled(line.to_string(), value_style())]));
+            lines.push(Line::from(vec![Span::styled(
+                line.to_string(),
+                value_style(),
+            )]));
         }
     }
     lines.push(Line::default());
@@ -78,21 +79,15 @@ fn draw_main_panel(f: &mut Frame, snapshot: &AppSnapshot, panel: &HistorySetting
     if panel.draft_limit.kind != HistoryLimitKind::None {
         let value_selected = panel.cursor == HistorySettingsField::LimitValue;
         let (label, value) = match panel.draft_limit.kind {
-            HistoryLimitKind::MaxAgeDays => (
-                "Limit value",
-                format!("{} days", panel.draft_limit.days),
-            ),
-            HistoryLimitKind::MaxSizeMb => (
-                "Limit value",
-                format!("{} MB", panel.draft_limit.size_mb),
-            ),
+            HistoryLimitKind::MaxAgeDays => {
+                ("Limit value", format!("{} days", panel.draft_limit.days))
+            }
+            HistoryLimitKind::MaxSizeMb => {
+                ("Limit value", format!("{} MB", panel.draft_limit.size_mb))
+            }
             HistoryLimitKind::None => ("Limit value", "—".to_string()),
         };
-        lines.push(setting_line(
-            value_selected,
-            label,
-            value,
-        ));
+        lines.push(setting_line(value_selected, label, value));
     }
 
     lines.push(Line::from(vec![Span::styled(
@@ -211,7 +206,9 @@ fn draw_confirm(f: &mut Frame, confirm: &crate::model::ConfirmDialog) {
         .title(Line::from(vec![Span::styled("Confirm", title_style())]))
         .borders(Borders::ALL);
     f.render_widget(
-        Paragraph::new(lines).block(block).alignment(Alignment::Center),
+        Paragraph::new(lines)
+            .block(block)
+            .alignment(Alignment::Center),
         area,
     );
 }
@@ -243,7 +240,9 @@ fn draw_filename_prompt(f: &mut Frame, prompt: &crate::model::FilenamePrompt) {
         .title(Line::from(vec![Span::styled("Backup", title_style())]))
         .borders(Borders::ALL);
     f.render_widget(
-        Paragraph::new(lines).block(block).alignment(Alignment::Center),
+        Paragraph::new(lines)
+            .block(block)
+            .alignment(Alignment::Center),
         area,
     );
 }
@@ -288,7 +287,9 @@ fn draw_archive_browser(f: &mut Frame, browser: &crate::model::ArchiveBrowser) {
         .title(Line::from(vec![Span::styled("Archives", title_style())]))
         .borders(Borders::ALL);
     f.render_widget(
-        Paragraph::new(lines).block(block).alignment(Alignment::Center),
+        Paragraph::new(lines)
+            .block(block)
+            .alignment(Alignment::Center),
         area,
     );
 }

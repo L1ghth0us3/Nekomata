@@ -4,12 +4,10 @@ use std::path::PathBuf;
 
 use crate::config::{self, AppConfig};
 use crate::history::{
-    create_backup, delete_archive, list_archives, ArchiveEntry,
-    HistoryLimitKind, HistoryRetentionPolicy, HistorySessionHandle, HistoryStore, RetentionPlan,
+    create_backup, delete_archive, list_archives, ArchiveEntry, HistoryLimitKind,
+    HistoryRetentionPolicy, HistorySessionHandle, HistoryStore, RetentionPlan,
 };
-use crate::model::{
-    AppState, ConfirmAction, ConfirmDialog, ConfirmFocus, HistorySettingsField,
-};
+use crate::model::{AppState, ConfirmAction, ConfirmDialog, ConfirmFocus, HistorySettingsField};
 
 pub struct RetentionState {
     pub policy: HistoryRetentionPolicy,
@@ -122,9 +120,7 @@ pub fn build_delete_live_confirm(
 
 pub fn build_delete_archive_confirm(panel: &mut crate::model::HistorySettingsPanel, name: String) {
     panel.confirm = Some(ConfirmDialog {
-        message: format!(
-            "Delete archive \"{name}\"?\nThis cannot be undone."
-        ),
+        message: format!("Delete archive \"{name}\"?\nThis cannot be undone."),
         confirm_label: "Delete".to_string(),
         action: ConfirmAction::DeleteArchive { name },
         focus: ConfirmFocus::Cancel,

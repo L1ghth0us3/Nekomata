@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use chrono::{DateTime, Local, NaiveDate, TimeZone};
+use chrono::{DateTime, Local, TimeZone};
 use serde::{Deserialize, Serialize};
 
 use crate::config;
@@ -81,14 +81,6 @@ impl HistoryRetentionPolicy {
         }
     }
 
-    pub fn applied_from_config(cfg: &config::AppConfig) -> Self {
-        Self {
-            kind: HistoryLimitKind::from_config_key(&cfg.history_limit_applied_kind),
-            days: cfg.history_limit_applied_days,
-            size_mb: cfg.history_limit_applied_mb,
-        }
-    }
-
     pub fn write_committed(&self, cfg: &mut config::AppConfig) {
         cfg.history_limit_kind = self.kind.config_key().to_string();
         cfg.history_limit_days = self.days;
@@ -99,15 +91,6 @@ impl HistoryRetentionPolicy {
         cfg.history_limit_applied_kind = self.kind.config_key().to_string();
         cfg.history_limit_applied_days = self.days;
         cfg.history_limit_applied_mb = self.size_mb;
-    }
-
-    pub fn matches_applied(&self, cfg: &config::AppConfig) -> bool {
-        cfg.history_limit_kind == self.kind.config_key()
-            && cfg.history_limit_days == self.days
-            && cfg.history_limit_mb == self.size_mb
-            && cfg.history_limit_applied_kind == self.kind.config_key()
-            && cfg.history_limit_applied_days == self.days
-            && cfg.history_limit_applied_mb == self.size_mb
     }
 
     pub fn is_applied_in_config(&self, cfg: &config::AppConfig) -> bool {
@@ -157,10 +140,6 @@ pub fn format_oldest_date(ms: u64) -> Option<String> {
     Some(dt.date_naive().format("%Y-%m-%d").to_string())
 }
 
-pub fn parse_iso_date(date: &str) -> Option<NaiveDate> {
-    NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,10 +151,7 @@ mod tests {
             HistoryLimitKind::MaxAgeDays,
             HistoryLimitKind::MaxSizeMb,
         ] {
-            assert_eq!(
-                HistoryLimitKind::from_config_key(kind.config_key()),
-                kind
-            );
+            assert_eq!(HistoryLimitKind::from_config_key(kind.config_key()), kind);
         }
     }
 }

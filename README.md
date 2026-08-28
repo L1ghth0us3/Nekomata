@@ -88,6 +88,14 @@ The app will connect automatically to `ws://127.0.0.1:10501/ws` and begin render
 - Supplying `--debug` with no value writes all tracing output (info/debug/warn/error) to `~/.config/nekomata/debug.log` on Unix-like systems or the equivalent config directory on Windows.
 - Provide a path after `--debug` (e.g., `--debug ./logs/nekomata.log`) to log elsewhere; parent directories are created automatically if needed.
 
+### Pre-commit hook
+CI fails the build on any rustfmt difference or clippy warning. A hook in `.githooks/` runs those same two checks before each commit; enable it once per clone (git stores this outside the repo, so it does not survive a fresh clone):
+```bash
+git config core.hooksPath .githooks
+```
+- Blocked by formatting? Run `cargo fmt --all` and stage the result.
+- Bypass for a single commit with `git commit --no-verify`, or set `NEKOMATA_SKIP_HOOKS=1`.
+
 ## Controls
 - `q` or `Esc` — quit (or close settings / history)
 - `d` — cycle decorations (underline → background → none)

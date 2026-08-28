@@ -168,16 +168,18 @@ impl From<AppConfig> for AppSettings {
 
 impl From<AppSettings> for AppConfig {
     fn from(value: AppSettings) -> Self {
-        let mut cfg = AppConfig::default();
-        cfg.idle_seconds = value.idle_seconds;
-        cfg.default_decoration = value.default_decoration.config_key().to_string();
-        cfg.default_mode = value.default_mode.config_key().to_string();
-        cfg.dungeon_mode_enabled = value.dungeon_mode_enabled;
-        cfg.theme_id = value.theme_id;
-        cfg.role_theme_enabled = value.role_theme_enabled;
-        cfg.limit_break_mode = Some(value.limit_break_mode.as_u8());
-        cfg.show_limit_break = None;
-        cfg.history_enabled = value.history_enabled;
+        let mut cfg = AppConfig {
+            idle_seconds: value.idle_seconds,
+            default_decoration: value.default_decoration.config_key().to_string(),
+            default_mode: value.default_mode.config_key().to_string(),
+            dungeon_mode_enabled: value.dungeon_mode_enabled,
+            theme_id: value.theme_id,
+            role_theme_enabled: value.role_theme_enabled,
+            limit_break_mode: Some(value.limit_break_mode.as_u8()),
+            show_limit_break: None,
+            history_enabled: value.history_enabled,
+            ..Default::default()
+        };
         value.history_limit.write_committed(&mut cfg);
         cfg
     }

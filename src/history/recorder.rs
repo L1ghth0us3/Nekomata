@@ -157,7 +157,9 @@ impl RecorderWorker {
     fn maybe_apply_retention(&self) {
         let (policy, applied) = {
             let guard = self.retention_state.read().ok();
-            guard.map(|g| (g.policy.clone(), g.applied)).unwrap_or_default()
+            guard
+                .map(|g| (g.policy.clone(), g.applied))
+                .unwrap_or_default()
         };
         if !applied || policy.kind == super::retention::HistoryLimitKind::None {
             return;

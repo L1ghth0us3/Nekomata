@@ -40,10 +40,6 @@ impl HistorySession {
         }
     }
 
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-
     pub fn store(&self) -> Option<Arc<HistoryStore>> {
         self.store.clone()
     }
@@ -137,10 +133,6 @@ impl HistorySessionHandle {
         self.inner.write().await.shutdown().await;
     }
 
-    pub async fn is_enabled(&self) -> bool {
-        self.inner.read().await.is_enabled()
-    }
-
     pub async fn store(&self) -> Option<Arc<HistoryStore>> {
         self.inner.read().await.store()
     }
@@ -192,10 +184,10 @@ impl HistorySessionHandle {
     }
 
     pub async fn delete_live_and_reopen(&self, reopen: bool) -> anyhow::Result<()> {
-        self.inner.write().await.delete_live_and_reopen(reopen).await
-    }
-
-    pub fn inner(&self) -> Arc<TokioRwLock<HistorySession>> {
-        Arc::clone(&self.inner)
+        self.inner
+            .write()
+            .await
+            .delete_live_and_reopen(reopen)
+            .await
     }
 }

@@ -7,15 +7,14 @@ use chrono::{DateTime, Local, NaiveDate, TimeZone};
 
 use crate::config;
 
+use super::retention::{
+    cutoff_ms_for_days, format_oldest_date, HistoryLimitKind, HistoryRetentionPolicy, RetentionPlan,
+};
 use super::types::{
     DateSummaryRecord, DungeonAggregateRecord, DungeonHistoryDay, DungeonHistoryItem,
     DungeonSummaryRecord, EncounterRecord, EncounterSummaryRecord, HistoryDay,
     HistoryEncounterItem, HistoryKey, DUNGEON_NAMESPACE, ENCOUNTER_NAMESPACE,
     META_SCHEMA_VERSION_KEY, SCHEMA_VERSION,
-};
-use super::retention::{
-    cutoff_ms_for_days, format_oldest_date, HistoryLimitKind, HistoryRetentionPolicy,
-    RetentionPlan,
 };
 use super::util::resolve_title;
 
@@ -148,11 +147,15 @@ impl HistoryStore {
     }
 
     pub fn size_on_disk(&self) -> Result<u64> {
-        self.db.size_on_disk().context("Failed to read history DB size")
+        self.db
+            .size_on_disk()
+            .context("Failed to read history DB size")
     }
 
     pub fn flush(&self) -> Result<()> {
-        self.db.flush().context("Failed to flush history database")?;
+        self.db
+            .flush()
+            .context("Failed to flush history database")?;
         Ok(())
     }
 
@@ -298,8 +301,7 @@ impl HistoryStore {
             .get(key_bytes.as_slice())
             .context("Failed to read encounter summary for delete")?
             .map(|bytes| {
-                serde_cbor::from_slice::<EncounterSummaryRecord>(bytes.as_ref())
-                    .map(|s| s.date_id)
+                serde_cbor::from_slice::<EncounterSummaryRecord>(bytes.as_ref()).map(|s| s.date_id)
             })
             .transpose()
             .context("Failed to deserialize encounter summary for delete")?;
@@ -324,8 +326,7 @@ impl HistoryStore {
             .get(key_bytes.as_slice())
             .context("Failed to read dungeon summary for delete")?
             .map(|bytes| {
-                serde_cbor::from_slice::<DungeonSummaryRecord>(bytes.as_ref())
-                    .map(|s| s.date_id)
+                serde_cbor::from_slice::<DungeonSummaryRecord>(bytes.as_ref()).map(|s| s.date_id)
             })
             .transpose()
             .context("Failed to deserialize dungeon summary for delete")?;
@@ -831,9 +832,11 @@ fn format_duration_label(total_secs: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::EncounterSummary;
-    use crate::history::retention::{cutoff_ms_for_days, now_ms, HistoryLimitKind, HistoryRetentionPolicy};
+    use crate::history::retention::{
+        cutoff_ms_for_days, now_ms, HistoryLimitKind, HistoryRetentionPolicy,
+    };
     use crate::history::types::SCHEMA_VERSION;
+    use crate::model::EncounterSummary;
 
     fn make_summary(key: &[u8], base_title: &str, last_seen: u64) -> EncounterSummaryRecord {
         EncounterSummaryRecord {

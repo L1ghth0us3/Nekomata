@@ -1,9 +1,9 @@
 use std::env;
 use std::fs::{create_dir_all, OpenOptions};
+use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::io;
 
 use anyhow::{bail, Context, Result};
 use crossterm::event::{
@@ -30,10 +30,9 @@ mod ws_client;
 
 use history::{
     determine_history_task, handle_history_mouse, handle_history_settings_input,
-    open_history_settings_panel, refresh_archive_count, shared_retention_state,
-    spawn_history_task, spawn_initial_history_loads, try_close_history_settings,
-    HistoryRetentionPolicy, HistorySession, HistorySessionHandle, HistorySettingsContext,
-    HistoryStore,
+    open_history_settings_panel, refresh_archive_count, shared_retention_state, spawn_history_task,
+    spawn_initial_history_loads, try_close_history_settings, HistoryRetentionPolicy,
+    HistorySession, HistorySessionHandle, HistorySettingsContext, HistoryStore,
 };
 use model::{AppEvent, AppSettings, AppState, SettingsField, WS_URL_DEFAULT};
 use tracing::level_filters::LevelFilter;
@@ -57,7 +56,7 @@ async fn main() -> Result<()> {
         }
     };
 
-    let mut app_cfg = match config::load() {
+    let app_cfg = match config::load() {
         Ok(c) => c,
         Err(err) => {
             eprintln!("Failed to load config: {err:?}. Using defaults.");
@@ -187,8 +186,7 @@ async fn main() -> Result<()> {
                             }
                             let should_load = s.toggle_history();
                             if should_load {
-                                if let Some(store) = active_store(&hs_ctx, &history_session).await
-                                {
+                                if let Some(store) = active_store(&hs_ctx, &history_session).await {
                                     spawn_initial_history_loads(
                                         &mut s.history,
                                         store,
@@ -231,9 +229,7 @@ async fn main() -> Result<()> {
                             };
 
                             if let Some(task) = pending_task {
-                                if let Some(store) =
-                                    active_store(&hs_ctx, &history_session).await
-                                {
+                                if let Some(store) = active_store(&hs_ctx, &history_session).await {
                                     spawn_history_task(task, store, event_tx.clone());
                                 }
                             }
@@ -263,8 +259,7 @@ async fn main() -> Result<()> {
                                 }
                                 KeyCode::Enter if s.show_settings => {
                                     if s.settings_cursor == SettingsField::HistorySettings {
-                                        let live_size =
-                                            history_session.live_db_size_bytes().await;
+                                        let live_size = history_session.live_db_size_bytes().await;
                                         open_history_settings_panel(&mut s, live_size);
                                     }
                                 }
@@ -277,7 +272,8 @@ async fn main() -> Result<()> {
                                 KeyCode::Left | KeyCode::Right if s.show_settings => {
                                     let forward = matches!(key.code, KeyCode::Right);
                                     if s.adjust_selected_setting(forward) {
-                                        hs_ctx.app_cfg = config::AppConfig::from(s.settings.clone());
+                                        hs_ctx.app_cfg =
+                                            config::AppConfig::from(s.settings.clone());
                                         if let Err(err) = config::save(&hs_ctx.app_cfg) {
                                             eprintln!("Failed to save config: {err:?}");
                                         }

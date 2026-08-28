@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#
+# Mirrors the fmt and clippy steps of .github/workflows/ci.yml so formatting
+# drift and lint regressions are caught locally instead of on the runner.
+#
+# Bypass with `git commit --no-verify` or NEKOMATA_SKIP_HOOKS=1.
+
+set -uo pipefail
+
+if [[ "${NEKOMATA_SKIP_HOOKS:-0}" == "1" ]]; then
+    echo "pre-commit: skipped (NEKOMATA_SKIP_HOOKS=1)"
+    exit 0
+fi
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+if ! command -v cargo >/dev/null 2>&1; then
+    echo "pre-commit: cargo not found in PATH; skipping Rust checks." >&2
+    exit 0
+fi
+
+fail() {
+    echo ""
+    echo "pre-commit: $1"
+    echo "Commit aborted. Use 'git commit --no-verify' to bypass."
+    exit 1
+}
+
+echo "pre-commit: cargo fmt --check"
+if ! cargo fmt --all -- --check; then
+    fail "formatting differs from rustfmt. Run 'cargo fmt --all' and stage the result."
+fi
+
+echo "pre-commit: cargo clippy -D warnings"
+if ! cargo clippy --locked --quiet -- -D warnings; then
+    fail "clippy reported warnings, which CI treats as errors."
+fi
+
+echo "pre-commit: ok"
