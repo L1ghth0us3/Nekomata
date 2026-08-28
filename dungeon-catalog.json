@@ -9,7 +9,7 @@
       "boss1": "Void Soulcounter",
       "boss2": "Void Soulcounter",
       "boss3": "Void Soulcounter",
-      "boss3": "Galvanth the Dominator"
+      "boss4": "Galvanth the Dominator"
     },
     "Copperbell Mines": {
       "boss1": "Kottos",
@@ -20,7 +20,7 @@
       "boss1": "Firemane",
       "boss2": "Thunderclap Guivre",
       "boss_optional3": "Pit Peiste",
-      "boss4": "Tangata",
+      "boss4": "Tangata"
     },
     "The Thousand Maws of Toto-Rak": {
       "boss1": "Coeurl O' Nine Tails",
@@ -29,7 +29,10 @@
     },
     "Haukke Manor": {
       "boss1": "Manor Claviger",
-      "boss2": ["Manor Jester", "Manor Steward"],
+      "boss2": [
+        "Manor Jester",
+        "Manor Steward"
+      ],
       "boss3": "Lady Amandine"
     },
     "Brayflox's Longstop": {
@@ -80,7 +83,10 @@
       "boss3": "Gaius van Baelsar"
     },
     "Amdapor Keep": {
-      "boss1": ["Lunatic Priest", "Psycheflayer"],
+      "boss1": [
+        "Lunatic Priest",
+        "Psycheflayer"
+      ],
       "boss2": "Demon Wall",
       "boss3": "Anantaboga"
     },
@@ -92,7 +98,10 @@
     },
     "Copperbell Mines (Hard)": {
       "boss1": "Hecatoncheir Mastermind",
-      "boss2": ["Gogmagolem", "Biggy"],
+      "boss2": [
+        "Gogmagolem",
+        "Biggy"
+      ],
       "boss3": "Ouranos"
     },
     "Haukke Manor (Hard)": {
@@ -109,12 +118,15 @@
       "boss1": "Pyracmon",
       "boss2": "Catoblepas",
       "boss3": [
-        "Silent Moss the Solemn", 
-        "Franz the Fair", 
-        "Langloisiert the Lionheart", 
+        "Silent Moss the Solemn",
+        "Franz the Fair",
+        "Langloisiert the Lionheart",
         "U'linbho the Sand Devil"
       ],
-      "boss4": ["Mumuepo the Beholden", "Narasimha"]
+      "boss4": [
+        "Mumuepo the Beholden",
+        "Narasimha"
+      ]
     },
     "Brayflox's Longstop (Hard)": {
       "boss1": "Illuminati Commander",
@@ -167,364 +179,388 @@
       "boss3": "Ferdiad"
     },
     "The Dusk Vigil": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Towering Oliphant",
+      "boss2": "Ser Yuhelmeric",
+      "boss3": "Opinicus"
     },
     "Sohm Al": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Raskovnik",
+      "boss2": "Myath",
+      "boss3": "Tioman"
     },
     "The Aery": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Rangda",
+      "boss2": "Gyascutus",
+      "boss3": "Nidhogg"
     },
     "The Vault": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Ser Adelphel Brightblade",
+      "boss2": "Ser Grinnaux the Bull",
+      "boss3": "Ser Charibert"
     },
     "The Great Gubal Library": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Demon Tome",
+      "boss2": "Byblos",
+      "boss3": "The Everliving Bibliotaph"
     },
     "The Aetherochemical Research Facility": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Regula van Hydrus",
+      "boss2": "Harmachis",
+      "boss3": [
+        "Lahabrea",
+        "Igeyorhm"
+      ],
+      "boss4": "Ascian Prime"
     },
     "Neverreap": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Nunyenunc",
+      "boss2": "Canu Vanu",
+      "boss3": "Waukkeon"
     },
     "The Fractal Continuum": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Phantom Ray",
+      "boss2": "Minotaur",
+      "boss3": "The Curator"
     },
     "Saint Mocianne's Arboretum": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Rose Garden",
+      "boss2": "Queen Hawk",
+      "boss3": "Belladonna"
     },
     "Pharos Sirius (Hard)": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Ghrah Luminary",
+      "boss2": "8th Order Patriarch Be Gu",
+      "boss3": [
+        "Progenitrix",
+        "Progenitor"
+      ]
     },
     "The Antitower": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Zuro Roggo",
+      "boss2": "Ziggy",
+      "boss3": "Calcabrina"
     },
     "The Lost City of Amdapor (Hard)": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Achamoth",
+      "boss2": "Winged Lion",
+      "boss3": "Kuribu"
     },
     "Sohr Khai": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Chieftain Moglin",
+      "boss2": "Poqhiraj",
+      "boss3": "Hraesvelgr"
     },
     "Hullbreaker Isle (Hard)": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": [
+        "Battle Coeurl",
+        "Sanguine Sirens Gunner",
+        "Sanguine Sirens Lodeswoman",
+        "Sanguine Sirens Targirl"
+      ],
+      "boss2": "Ymir",
+      "boss3": [
+        "Grand Storm Marshal Slafyrsyn",
+        "Mistbeard"
+      ]
     },
     "Xelphatol": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Nuzal Hueloc",
+      "boss2": "Dotoli Ciloc",
+      "boss3": "Tozol Huatotl"
     },
     "The Great Gubal Library (Hard)": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
-    },
-    "Xelphatol": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
-    },
-    "The Great Gubal Library (Hard)": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Demon of the Tome",
+      "boss2": "Liquid Flame",
+      "boss3": "Strix"
     },
     "Baelsar's Wall": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Magitek Predator",
+      "boss2": "Armored Weapon",
+      "boss3": "The Griffin"
     },
     "Sohm Al (Hard)": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "The Leightonward",
+      "boss2": "Gowrow",
+      "boss3": "Lava Scorpion"
     },
     "The Sirensong Sea": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Lugat",
+      "boss2": "The Governor",
+      "boss3": "Lorelei"
     },
     "Shisui of the Violet Tides": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Amikiri",
+      "boss2": "Ruby Princess",
+      "boss3": "Shisui Yohi"
     },
     "Bardam's Mettle": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Garula",
+      "boss2": "Bardam",
+      "boss3": "Yol"
     },
     "Doma Castle": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Magitek Rearguard",
+      "boss2": "Magitek Hexadrone",
+      "boss3": "Hypertuned Grynewaht"
     },
     "Castrum Abania": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Magna Roader",
+      "boss2": "Subject Number XXIV",
+      "boss3": "Inferno"
     },
     "Ala Mhigo": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Magitek Scorpion",
+      "boss2": "Aulus mal Asina",
+      "boss3": "Zenos yae Galvus"
     },
     "Kugane Castle": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Zuiko-maru",
+      "boss2": "Dojun-maru",
+      "boss3": "Yojimbo"
     },
     "The Temple of the Fist": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": [
+        "Coeurl Sruti",
+        "Coeurl Smriti"
+      ],
+      "boss2": "Arbuda",
+      "boss3": "Ivon Coeurlfist"
     },
     "The Drowned City of Skalla": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Kelpie",
+      "boss2": "The Old One",
+      "boss3": "Hrodric Poisontongue"
     },
     "Hell's Lid": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Otake-maru",
+      "boss2": "Kamaitachi",
+      "boss3": "Genbu"
     },
     "The Fractal Continuum (Hard)": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Motherbit",
+      "boss2": "The Ultima Warrior",
+      "boss3": "The Ultima Beast"
     },
     "The Swallow's Compass": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Otengu",
+      "boss2": "Daidarabotchi",
+      "boss3": "Qitian Dasheng"
     },
     "The Burn": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Hedetet",
+      "boss2": "Defective Drone",
+      "boss3": "Mist Dragon"
     },
     "Saint Mocianne's Arboretum (Hard)": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Nullchu",
+      "boss2": "Lakhamu",
+      "boss3": "Tokkapchi"
     },
     "The Ghimlyt Dark": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Mark III-B Magitek Colossus",
+      "boss2": "Prometheus",
+      "boss3": [
+        "Annia quo Soranus",
+        "Julia quo Soranus"
+      ]
     },
     "Holminster Switch": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Forgiven Dissonance",
+      "boss2": "Tesleen, the Forgiven",
+      "boss3": "Philia"
     },
     "Dohn Mheg": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Aenc Thon, Lord of the Lingering Gaze",
+      "boss2": "Griaule",
+      "boss3": "Aenc Thon, Lord of the Lengthsome Gait"
     },
     "The Qitana Ravel": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Lozatl",
+      "boss2": "Batsquatch",
+      "boss3": "Eros"
     },
     "Malikah's Well": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Greater Armadillo",
+      "boss2": "Amphibious Talos",
+      "boss3": "Storge"
     },
     "Mt. Gulg": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Forgiven Cruelty",
+      "boss2": "Forgiven Whimsy",
+      "boss3": "Forgiven Obscenity"
     },
     "Amaurot": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "The First Beast",
+      "boss2": "Terminus Bellwether",
+      "boss3": "Therion"
     },
     "The Twinning": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Alpha Zaghnal",
+      "boss2": "Mithridates",
+      "boss3": "The Tycoon"
     },
     "Akademia Anyder": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": [
+        "Cladoselache",
+        "Doliodus"
+      ],
+      "boss2": "Marquis Morbol",
+      "boss3": "Quetzalcoatl"
     },
     "The Grand Cosmos": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Seeker of Solitude",
+      "boss2": "Leannan Sith",
+      "boss3": "Lugus"
     },
     "Anamnesis Anyder": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Unknown",
+      "boss2": "Kyklops",
+      "boss3": "Rukshs Dheem"
     },
     "The Heroes' Gauntlet": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Spectral Thief",
+      "boss2": "Spectral Necromancer",
+      "boss3": "Spectral Berserker"
     },
     "Matoya's Relict": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Mudman",
+      "boss2": "Nixie",
+      "boss3": "Mother Porxie"
     },
     "Paglth'an": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Amhuluk",
+      "boss2": "Magitek Fortress",
+      "boss3": "Lunar Bahamut"
     },
     "The Tower of Zot": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Minduruva",
+      "boss2": "Sanduruva",
+      "boss3": "The Magus Sisters"
     },
     "The Tower of Babil": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Barnabas",
+      "boss2": "Lugae",
+      "boss3": "Anima"
     },
     "Vanaspati": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Terminus Snatcher",
+      "boss2": "Terminus Wrecker",
+      "boss3": "Svarbhanu"
     },
     "Ktisis Hyperboreia": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Lyssa",
+      "boss2": "Ladon Lord",
+      "boss3": "Hermes"
     },
     "The Atiascope": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Livia the Undeterred",
+      "boss2": "Rhitahtyn the Unshakable",
+      "boss3": "Amon the Undying"
     },
     "The Dead Ends": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Caustic Grebuloff",
+      "boss2": "Peacekeeper",
+      "boss3": "Ra-la"
     },
     "Smileton": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Face",
+      "boss2": "Frameworker",
+      "boss3": "The Big Cheese"
     },
     "The Stigma Dreamscape": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Proto-Omega",
+      "boss2": "Arch-Lambda",
+      "boss3": "Stigma-4"
     },
     "Alzadaal's Legacy": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Ambujam",
+      "boss2": "Armored Chariot",
+      "boss3": "Kapikulu"
     },
     "The Fell Court of Troia": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Evil Dreamers",
+      "boss2": "Beatrice",
+      "boss3": "Scarmiglione"
     },
     "Lapis Manalis": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Albion",
+      "boss2": "Galatea Magna",
+      "boss3": "Cagnazzo"
     },
     "The Aetherfont": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Lyngbakr",
+      "boss2": "Arkas",
+      "boss3": "Octomammoth"
     },
     "The Lunar Subterrane": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Dark Elf",
+      "boss2": "Damcyan Antlion",
+      "boss3": "Durante"
     },
     "Ihuykatumu": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Prime Punutiy",
+      "boss2": "Drowsie",
+      "boss3": "Apollyon"
     },
     "Worqor Zormor": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Ryoqor Terteh",
+      "boss2": "Kahderyor",
+      "boss3": "Gurfurlur"
     },
     "The Skydeep Cenote": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Feather Ray",
+      "boss2": "Firearms",
+      "boss3": "Maulskull"
     },
     "Vanguard": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Vanguard Commander R8",
+      "boss2": "Protector",
+      "boss3": "Zander the Snakeskinner"
     },
     "Origenics": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Herpekaris",
+      "boss2": "Deceiver",
+      "boss3": "Ambrose the Undeparted"
     },
     "Alexandria": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Antivirus X",
+      "boss2": "Amalgam",
+      "boss3": "Eliminator"
     },
     "Tender Valley": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Barreltender",
+      "boss2": "Anthracite",
+      "boss3": "Greatest Serpent of Tural"
     },
     "The Strayborough Deadwalk": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "His Royal Headness Leonogg I",
+      "boss2": "Jack-in-the-Pot",
+      "boss3": "Träumerei"
     },
     "Yuweyawata Field Station": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Lindblum Zaghnal",
+      "boss2": "Overseer Kanilokka",
+      "boss3": "Lunipyati"
     },
     "The Underkeep": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Gargant",
+      "boss2": "Soldier S0",
+      "boss3": "Valia Pira"
     },
     "The Meso Terminal": {
-      "boss1": "not-so scary boss name",
-      "boss2": "joe",
-      "boss3": "peter"
+      "boss1": "Chirurgeon General",
+      "boss2": "Hooded Headsmen",
+      "boss3": "Immortal Remains"
+    },
+    "Mistwake": {
+      "boss1": "Treno Catoblepas",
+      "boss2": "Amdusias",
+      "boss3": "Thundergust Griffin"
+    },
+    "The Clyteum": {
+      "boss1": "Eye of the Scorpion",
+      "boss2": "Chort",
+      "boss3": "Malphas"
     }
   }
 }
